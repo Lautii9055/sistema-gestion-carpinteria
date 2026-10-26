@@ -4,6 +4,9 @@ Es el único lugar del sistema que arma la cadena de conexión. Los repositorios
 piden una conexión con obtener_conexion() y no saben nada de servidores,
 drivers ni contraseñas.
 """
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 import pyodbc
 
 from carpinteria.datos.configuracion import ConfiguracionBD, cargar_configuracion
@@ -67,3 +70,21 @@ def obtener_conexion(config: ConfiguracionBD | None = None,
             "No se pudo conectar a la base de datos. "
             "Verificá que SQL Server esté iniciado."
         ) from None
+
+
+@contextmanager
+def conexion_abierta() -> Iterator[pyodbc.Connection]:
+    """Abre una conexión, confirma los cambios si todo salió bien y la cierra.
+
+    Si ocurre un error, deshace los cambios (rollback): la base nunca queda a
+    medio actualizar.
+    """
+    conexion = obtener_conexion()
+    try:
+        yield conexion
+        conexion.commit()
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        conexion.close()

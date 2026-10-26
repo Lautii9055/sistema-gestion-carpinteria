@@ -64,12 +64,29 @@ Diseñada a partir de una evaluación de riesgos proporcional al uso real (ver l
 └── tests/           Pruebas automatizadas
 ```
 
+## Cómo ejecutarlo (Windows)
+Requisitos: SQL Server Express con la base creada (ver [`database/README.md`](database/README.md)), ODBC Driver 18 y Python 3.12 o superior.
+
+```
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pip install -e .
+python scripts/configurar_credenciales.py   # una sola vez: guarda la contraseña de la base en Windows
+python -m carpinteria                       # inicia el sistema
+```
+
+Pruebas: `pytest`. Revisión de vulnerabilidades en dependencias: `pip-audit`.
+
 ## Documentación
 - [Requerimientos](docs/requerimientos.md)
 - [Modelo de datos](docs/modelo_datos.md)
 - [Diagrama entidad-relación](docs/DER_carpinteria.png)
 - [Instalación de la base de datos](database/README.md)
 - [Plan de respuesta a incidentes](docs/plan_respuesta_incidentes.md)
+
+## Créditos
+Tipografías Cormorant Garamond e Inter, bajo licencia SIL Open Font License 1.1 (ver `src/carpinteria/presentacion/assets/fonts`).
 
 ## Autor
 **Lautaro Zanino** — Técnico Universitario en Programación (UTN) · Estudiante de la Licenciatura en Gestión de TI (UADE)
