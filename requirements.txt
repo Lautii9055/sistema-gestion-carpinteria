@@ -1,0 +1,11 @@
+# Dependencias de la aplicación.
+# Las versiones se fijan con "pip freeze" una vez instaladas (RNF-05.5).
+flet
+pyodbc
+bcrypt
+keyring
+cryptography
+
+# Desarrollo
+pytest
+pip-audit
