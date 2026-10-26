@@ -1,11 +1,10 @@
-# Dependencias de la aplicación.
-# Las versiones se fijan con "pip freeze" una vez instaladas (RNF-05.5).
-flet
-pyodbc
-bcrypt
-keyring
-cryptography
+# Dependencias de la aplicación (versiones fijadas; revisar con pip-audit)
+flet==1.0.5
+pyodbc==5.3.0
+bcrypt==5.0.0
+keyring==25.7.0
+cryptography==50.0.2
 
 # Desarrollo
-pytest
-pip-audit
+pytest==9.1.1
+pip-audit==2.10.1
