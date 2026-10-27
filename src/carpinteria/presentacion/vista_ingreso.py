@@ -14,10 +14,11 @@ if TYPE_CHECKING:
 ANCHO_MINIMO_PANEL_MARCA = 980  # en ventanas más angostas se oculta el panel izquierdo
 
 
-def construir(app: Aplicacion) -> ft.Control:
+def construir(app: Aplicacion, aviso_info: str | None = None) -> ft.Control:
     p = app.paleta
 
-    caja_error = ft.Container(visible=False)
+    caja_error = ft.Container(content=tema.aviso(aviso_info, p, tipo="info") if aviso_info else None,
+                              visible=bool(aviso_info))
     usuario = tema.campo("Usuario", p, autofocus=True)
     contrasena = tema.campo("Contraseña", p, password=True, can_reveal_password=True)
     cargando = ft.ProgressRing(width=22, height=22, stroke_width=3, color=p.sobre_acento, visible=False)

@@ -26,3 +26,22 @@ class Sesion:
     ultimo_ingreso_anterior: datetime | None   # para el aviso RF-03.7
     intentos_fallidos_desde_entonces: int
     debe_cambiar_contrasena: bool
+
+
+@dataclass(frozen=True)
+class EventoAuditoria:
+    fecha_hora: datetime
+    codigo: str
+    descripcion: str
+    es_critico: bool
+    usuario: str | None          # nombre completo de quien lo hizo (si se sabe)
+    usuario_ingresado: str | None
+    detalle: str | None
+    equipo: str | None
+
+
+@dataclass(frozen=True)
+class TipoEvento:
+    codigo: str
+    descripcion: str
+    es_critico: bool

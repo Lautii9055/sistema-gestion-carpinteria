@@ -27,6 +27,7 @@ POR_DEFECTO = {
     "max_intentos_login": 5,
     "minutos_bloqueo": 15,
     "largo_minimo_contrasena": 10,
+    "minutos_inactividad": 15,
 }
 
 # Hash de una contraseña que nadie conoce: se usa cuando el usuario no existe.
@@ -90,6 +91,10 @@ class ServicioAutenticacion:
     @property
     def largo_minimo_contrasena(self) -> int:
         return self._parametro("largo_minimo_contrasena")
+
+    @property
+    def minutos_inactividad(self) -> int:
+        return self._parametro("minutos_inactividad")
 
     # ---------- ingreso ----------
     def ingresar(self, nombre_usuario: str, contrasena: str) -> Sesion:
@@ -170,6 +175,14 @@ class ServicioAutenticacion:
             raise ContrasenaNoValida(" ".join(problemas))
         self._usuarios.cambiar_contrasena(id_usuario, generar_hash(nueva), self._reloj())
         self._auditar("CAMBIO_CONTRASENA", id_usuario=id_usuario)
+
+    def cambiar_contrasena_propia(self, id_usuario: int, actual: str, nueva: str,
+                                  confirmacion: str) -> None:
+        """Cambio voluntario desde "Mi contraseña": pide la actual (RF-02)."""
+        usuario = self._usuarios.buscar_por_id(id_usuario)
+        if usuario is None or not _coincide(actual, usuario.hash_contrasena):
+            raise ContrasenaNoValida("La contraseña actual no es correcta.")
+        self.cambiar_contrasena(id_usuario, nueva, confirmacion)
 
     # ---------- auditoría ----------
     def _auditar(self, codigo: str, **datos) -> None:

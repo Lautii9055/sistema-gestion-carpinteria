@@ -1,7 +1,6 @@
 """Pruebas del servicio de autenticación con repositorios en memoria (sin base)."""
 from dataclasses import replace
 from datetime import datetime, timedelta
-from decimal import Decimal
 
 import pytest
 
@@ -10,63 +9,7 @@ from carpinteria.negocio.autenticacion import (ContrasenaNoValida, CredencialesI
                                                generar_hash)
 from carpinteria.negocio.entidades import Usuario
 
-AHORA = datetime(2026, 10, 26, 18, 0)
-
-
-class UsuariosEnMemoria:
-    def __init__(self, *usuarios: Usuario) -> None:
-        self.por_id = {u.id: u for u in usuarios}
-
-    def buscar_por_nombre(self, nombre):
-        return next((u for u in self.por_id.values() if u.nombre_usuario.casefold() == nombre.casefold()), None)
-
-    def buscar_por_id(self, id_usuario):
-        return self.por_id.get(id_usuario)
-
-    def registrar_fallo(self, id_usuario, intentos, bloqueado_hasta):
-        u = self.por_id[id_usuario]
-        self.por_id[id_usuario] = replace(u, intentos_fallidos=intentos, bloqueado_hasta=bloqueado_hasta)
-
-    def registrar_ingreso_exitoso(self, id_usuario, fecha):
-        u = self.por_id[id_usuario]
-        self.por_id[id_usuario] = replace(u, intentos_fallidos=0, bloqueado_hasta=None, ultimo_ingreso=fecha)
-
-    def cambiar_contrasena(self, id_usuario, hash_contrasena, fecha):
-        u = self.por_id[id_usuario]
-        self.por_id[id_usuario] = replace(u, hash_contrasena=hash_contrasena, debe_cambiar_contrasena=False)
-
-
-class AuditoriaEnMemoria:
-    def __init__(self, reloj) -> None:
-        self.eventos = []
-        self._reloj = reloj
-
-    def registrar(self, codigo_evento, **datos):
-        self.eventos.append((self._reloj(), codigo_evento, datos))
-
-    def contar_ingresos_fallidos(self, id_usuario, desde):
-        return sum(1 for fecha, codigo, d in self.eventos
-                   if codigo == "LOGIN_FALLIDO" and d.get("id_usuario") == id_usuario
-                   and (desde is None or fecha > desde))
-
-    def codigos(self):
-        return [codigo for _, codigo, _ in self.eventos]
-
-
-class ParametrosEnMemoria:
-    valores = {"max_intentos_login": Decimal(5), "minutos_bloqueo": Decimal(15),
-               "largo_minimo_contrasena": Decimal(10)}
-
-    def obtener(self, clave):
-        return self.valores.get(clave)
-
-
-class Reloj:
-    def __init__(self) -> None:
-        self.ahora = AHORA
-
-    def __call__(self):
-        return self.ahora
+from fakes import AHORA, AuditoriaEnMemoria, ParametrosEnMemoria, Reloj, UsuariosEnMemoria
 
 
 HASH_LAUTARO = generar_hash("Correcta.2026")
