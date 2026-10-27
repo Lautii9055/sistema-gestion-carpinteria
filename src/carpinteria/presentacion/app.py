@@ -22,6 +22,7 @@ from carpinteria.datos.repositorios_trabajos import RepositorioTrabajosSql
 from carpinteria.negocio.auditoria import ServicioAuditoria
 from carpinteria.negocio.autenticacion import ErrorAutenticacion, ServicioAutenticacion
 from carpinteria.negocio.clientes import ServicioClientes
+from carpinteria.negocio.inicio import ServicioInicio
 from carpinteria.negocio.trabajos import ServicioTrabajos
 from carpinteria.negocio.entidades import Sesion
 from carpinteria.negocio.usuarios import ServicioUsuarios
@@ -57,13 +58,14 @@ def configurar_registro() -> Path:
 class Aplicacion:
     def __init__(self, page: ft.Page, autenticacion: ServicioAutenticacion,
                  usuarios: ServicioUsuarios, auditoria: ServicioAuditoria,
-                 clientes: ServicioClientes, trabajos: ServicioTrabajos) -> None:
+                 clientes: ServicioClientes, trabajos: ServicioTrabajos, inicio: ServicioInicio) -> None:
         self.page = page
         self.autenticacion = autenticacion
         self.usuarios = usuarios
         self.auditoria = auditoria
         self.clientes = clientes
         self.trabajos = trabajos
+        self.inicio = inicio
         self.recuerdos: dict = {}  # estado de cada pantalla (ej.: la última búsqueda)
         self.modo_oscuro = True
         self.sesion: Sesion | None = None
@@ -246,6 +248,7 @@ def main(page: ft.Page) -> None:
     repositorio_parametros = RepositorioParametrosSql()
     repositorio_clientes = RepositorioClientesSql()
     repositorio_obras = RepositorioObrasSql()
+    repositorio_trabajos = RepositorioTrabajosSql()
     app = Aplicacion(
         page,
         autenticacion=ServicioAutenticacion(repositorio_usuarios, repositorio_auditoria,
@@ -253,8 +256,9 @@ def main(page: ft.Page) -> None:
         usuarios=ServicioUsuarios(repositorio_usuarios, repositorio_auditoria),
         auditoria=ServicioAuditoria(repositorio_auditoria),
         clientes=ServicioClientes(repositorio_clientes, repositorio_obras),
-        trabajos=ServicioTrabajos(RepositorioTrabajosSql(), repositorio_clientes, repositorio_obras,
+        trabajos=ServicioTrabajos(repositorio_trabajos, repositorio_clientes, repositorio_obras,
                                   repositorio_auditoria, repositorio_parametros),
+        inicio=ServicioInicio(repositorio_trabajos),
     )
     page.run_task(app.vigilar_inactividad)
     app.mostrar_ingreso()

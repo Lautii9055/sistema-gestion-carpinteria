@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 1.4 (agrega la fecha de presupuesto del trabajo; migración `06`)
+**Versión del documento:** 1.5 (fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -165,7 +165,8 @@ Una casa o inmueble donde se realizan trabajos. Permite consultar todo lo hecho 
 | fecha_cobro_sena_tra | DATE | |
 | fecha_comienzo_tra | DATE | |
 | fecha_finalizacion_tra | DATE | ≥ fecha_comienzo_tra |
-| fecha_entrega_tra | DATE | ≥ fecha_finalizacion_tra |
+| fecha_entrega_tra | DATE | ≥ fecha_finalizacion_tra. Antes de instalar: entrega pactada; después: la real |
+| entrega_aproximada_tra | BIT | NN, default 0. 1 = de la entrega pactada solo se sabe la semana |
 | fecha_cobro_saldo_tra | DATE | |
 | observaciones_tra | VARCHAR(500) | |
 

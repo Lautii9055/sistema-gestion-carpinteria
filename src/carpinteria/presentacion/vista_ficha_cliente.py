@@ -64,11 +64,28 @@ def _cambiar_estado(app: Aplicacion, cliente: Cliente) -> None:
     if not cliente.es_activo:
         accion()
         return
+    en_curso, error = app.ejecutar(app.clientes.trabajos_en_curso, cliente.id)
+    if error:
+        componentes.aviso_flotante(app.page, error, p)
+        return
+    if en_curso:
+        # Se avisa antes de pedir confirmación: no tiene sentido confirmar algo que no se puede hacer.
+        app.mostrar_dialogo(componentes.dialogo(
+            p, "No se puede dar de baja",
+            ft.Column([
+                ft.Text(f"{cliente.nombre_completo} tiene trabajos en curso. Terminalos o cancelalos "
+                        "primero, así ningún trabajo queda a medias:", size=15, color=p.texto_secundario),
+                *[ft.Row([ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=p.acento_texto),
+                          ft.Text(t, size=14, color=p.texto, expand=True)], spacing=6) for t in en_curso],
+            ], spacing=10, tight=True),
+            [tema.boton_principal("Entendido", p, lambda _: app.cerrar_dialogo())],
+        ))
+        return
     app.mostrar_dialogo(componentes.dialogo(
         p, "Dar de baja",
         ft.Text(f"{cliente.nombre_completo} deja de aparecer en el listado y no se le pueden cargar "
-                "trabajos nuevos. Sus obras y su historial se conservan, y se puede reactivar cuando "
-                "quieras.", size=15, color=p.texto_secundario),
+                "obras ni trabajos nuevos. Sus obras y sus trabajos terminados quedan como historial, "
+                "y se puede reactivar cuando quieras.", size=15, color=p.texto_secundario),
         [componentes.boton_cancelar(p, lambda _: app.cerrar_dialogo()),
          tema.boton_principal("Dar de baja", p, lambda _: (app.cerrar_dialogo(), accion()))],
     ))
@@ -109,7 +126,10 @@ def _tarjeta_obra(app: Aplicacion, cliente: Cliente, item: ObraConTrabajos) -> f
                       if obra.alias else [ft.Text(obra.localidad, size=14, color=p.texto_secundario)]),
                 ], spacing=2, expand=True),
                 ft.IconButton(icon=ft.Icons.EDIT_OUTLINED, icon_color=p.texto_secundario,
-                              tooltip="Editar la obra", on_click=lambda _: _abrir_obra(app, cliente.id, obra)),
+                              disabled=not cliente.es_activo,
+                              tooltip="Editar la obra" if cliente.es_activo
+                              else "Reactivá al cliente para cambiar sus obras",
+                              on_click=lambda _: _abrir_obra(app, cliente.id, obra)),
             ], spacing=12),
             *([ft.Text(obra.observaciones, size=14, color=p.texto_tenue, italic=True)]
               if obra.observaciones else []),
@@ -195,7 +215,9 @@ def construir(app: Aplicacion, id_cliente: int) -> ft.Control:
             ft.Column([tema.titulo("Obras", p, 30),
                        ft.Text(resumen, size=14, color=p.texto_tenue)], spacing=0, expand=True),
             componentes.boton_con_icono("Agregar obra", ft.Icons.ADD_HOME_OUTLINED, p,
-                                        lambda _: _abrir_obra(app, c.id), principal=False),
+                                        lambda _: _abrir_obra(app, c.id), principal=False,
+                                        disabled=not c.es_activo,
+                                        tooltip=None if c.es_activo else "Reactivá al cliente para agregarle obras"),
         ], vertical_alignment=ft.CrossAxisAlignment.END),
         *obras,
     ], spacing=16)

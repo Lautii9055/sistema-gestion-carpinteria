@@ -27,14 +27,9 @@ from carpinteria.negocio.entidades import DetalleTrabajo, EstadoTrabajo, Sesion,
 from carpinteria.negocio.puertos import (RepositorioAuditoria, RepositorioClientes, RepositorioObras,
                                          RepositorioParametros, RepositorioTrabajos)
 
-# Nombres de los estados tal como están cargados en la base (03_datos_iniciales.sql).
-PRESUPUESTADO = "Presupuestado"
-CONFIRMADO = "Confirmado"
-EN_PRODUCCION = "En producción"
-TERMINADO = "Terminado"
-INSTALADO = "Instalado"
-COBRADO = "Cobrado"
-CANCELADO = "Cancelado"
+from carpinteria.negocio.estados import (CANCELADO, COBRADO, CONFIRMADO, EN_PRODUCCION,  # noqa: F401
+                                         INSTALADO, PRESUPUESTADO, TERMINADO)
+
 ESTADOS_SIN_COBRO = (PRESUPUESTADO, CANCELADO)   # todavía no (o ya no) se debe nada
 ESTADOS_QUE_SE_PUEDEN_ELIMINAR = (PRESUPUESTADO, CANCELADO)
 
@@ -96,6 +91,18 @@ def leer_monto(texto: str | None, campo: str = "el monto") -> Decimal | None:
     return monto.quantize(Decimal("0.01"))
 
 
+def formatear_al_escribir(texto: str | None) -> str:
+    """Pone los puntos de miles mientras se escribe: "12000000" → "12.000.000".
+
+    Los decimales van con coma ("1.250,5"); un punto escrito se toma como de miles.
+    """
+    limpio = "".join(c for c in (texto or "") if c.isdigit() or c in ",.")
+    entero, coma, decimales = limpio.partition(",")
+    digitos = "".join(c for c in entero if c.isdigit()).lstrip("0") or ("0" if entero or coma else "")
+    agrupado = f"{int(digitos):,}".replace(",", ".") if digitos else ""
+    return agrupado + (("," + "".join(c for c in decimales if c.isdigit())[:2]) if coma else "")
+
+
 def formato_pesos(monto: Decimal | None) -> str:
     if monto is None:
         return "—"
@@ -104,11 +111,31 @@ def formato_pesos(monto: Decimal | None) -> str:
     return f"$ {entero}" + ("" if decimales == "00" else f",{decimales}")
 
 
+def formatear_fecha_al_escribir(texto: str | None) -> str:
+    """Agrega las barras mientras se escribe: "18112026" → "18/11/2026".
+
+    Si la persona escribe sus propias barras con otro formato (ej.: "5/11/26"),
+    se respeta lo que escribió.
+    """
+    texto = texto or ""
+    digitos = "".join(c for c in texto if c.isdigit())[:8]
+    barras_propias = [i for i, c in enumerate(texto) if not c.isdigit()]
+    if any(i not in (2, 5) or texto[i] != "/" for i in barras_propias):
+        return texto
+    if len(digitos) > 4:
+        return f"{digitos[:2]}/{digitos[2:4]}/{digitos[4:]}"
+    if len(digitos) > 2:
+        return f"{digitos[:2]}/{digitos[2:]}"
+    return digitos
+
+
 def leer_fecha(texto: str | None, campo: str = "la fecha") -> date | None:
-    """Acepta dd/mm/aaaa, dd/mm/aa, con barras, guiones o puntos."""
+    """Acepta dd/mm/aaaa, dd/mm/aa, con barras, guiones o puntos, o solo los números (ddmmaaaa)."""
     limpio = (texto or "").strip()
     if not limpio:
         return None
+    if limpio.isdigit() and len(limpio) in (6, 8):
+        limpio = f"{limpio[:2]}/{limpio[2:4]}/{limpio[4:]}"
     coincidencia = _FECHA.fullmatch(limpio)
     if coincidencia:
         dia, mes, anio = (int(x) for x in coincidencia.groups())
@@ -123,6 +150,29 @@ def leer_fecha(texto: str | None, campo: str = "la fecha") -> date | None:
 
 def formato_fecha(fecha: date | None) -> str:
     return f"{fecha:%d/%m/%Y}" if fecha else ""
+
+
+# ---------- entrega pactada ----------
+_DIAS_CORTOS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+
+
+def inicio_de_semana(fecha: date) -> date:
+    return fecha - timedelta(days=fecha.weekday())
+
+
+def limite_de_entrega(t: Trabajo) -> date | None:
+    """Último día aceptable: el pactado o, si se pactó la semana, su domingo."""
+    if not t.fecha_entrega:
+        return None
+    return inicio_de_semana(t.fecha_entrega) + timedelta(days=6) if t.entrega_aproximada else t.fecha_entrega
+
+
+def texto_entrega(t: Trabajo) -> str:
+    if not t.fecha_entrega:
+        return ""
+    if t.entrega_aproximada:
+        return f"Semana del {inicio_de_semana(t.fecha_entrega):%d/%m}"
+    return f"{_DIAS_CORTOS[t.fecha_entrega.weekday()]} {t.fecha_entrega:%d/%m}"
 
 
 # ---------- validación ----------
@@ -152,6 +202,8 @@ def validar_trabajo(trabajo: Trabajo, hoy: date, estado: EstadoTrabajo | None = 
         raise ErrorTrabajos("La seña no puede ser mayor que el monto total.")
 
     t = trabajo
+    if t.entrega_aproximada and not t.fecha_entrega:
+        t = trabajo = replace(t, entrega_aproximada=False)
     presupuesto = t.fecha_presupuesto or (t.fecha_alta.date() if t.fecha_alta else None)
     if presupuesto and presupuesto > hoy:
         raise ErrorTrabajos("La fecha de presupuesto no puede ser futura.")
@@ -163,11 +215,24 @@ def validar_trabajo(trabajo: Trabajo, hoy: date, estado: EstadoTrabajo | None = 
         if presupuesto and fecha and fecha < presupuesto:
             raise ErrorTrabajos(f"{NOMBRE_DE_FECHA[campo]}: no puede ser anterior al presupuesto "
                                 f"({presupuesto:%d/%m/%Y}).")
-    _orden(t.fecha_cobro_sena, t.fecha_comienzo, "El comienzo no puede ser anterior a la confirmación "
-                                                 "(cobro de la seña).")
-    _orden(t.fecha_comienzo, t.fecha_finalizacion, "La finalización no puede ser anterior al comienzo.")
-    _orden(t.fecha_finalizacion, t.fecha_entrega, "La entrega no puede ser anterior a la finalización.")
-    _orden(t.fecha_comienzo, t.fecha_entrega, "La entrega no puede ser anterior al comienzo.")
+    # Una fecha real (de un paso ya hecho, o un cobro) seguida de una prevista que
+    # quedó atrás (ej.: entrega pactada para antes de terminar) no es un error:
+    # el trabajo viene demorado. Entre dos reales o dos previstas, sí se exige el orden.
+    def real(campo: str) -> bool:
+        if estado is None or campo in ("fecha_cobro_sena", "fecha_cobro_saldo"):
+            return True
+        return next(e for e, c in FECHA_DEL_ESTADO.items() if c == campo) in alcanzados
+
+    def orden(antes: str, despues: str, mensaje: str) -> None:
+        if real(antes) and not real(despues):
+            return
+        _orden(getattr(t, antes), getattr(t, despues), mensaje)
+
+    orden("fecha_cobro_sena", "fecha_comienzo", "El comienzo no puede ser anterior a la confirmación "
+                                                "(cobro de la seña).")
+    orden("fecha_comienzo", "fecha_finalizacion", "La finalización no puede ser anterior al comienzo.")
+    orden("fecha_finalizacion", "fecha_entrega", "La entrega no puede ser anterior a la finalización.")
+    orden("fecha_comienzo", "fecha_entrega", "La entrega no puede ser anterior al comienzo.")
     _orden(t.fecha_cobro_sena, t.fecha_cobro_saldo, "El cobro del saldo no puede ser anterior al de la seña.")
     for campo in ("fecha_cobro_sena", "fecha_cobro_saldo"):
         fecha = getattr(t, campo)
@@ -268,8 +333,11 @@ class ServicioTrabajos:
                periodo: str = "Todos") -> list[DetalleTrabajo]:
         dias = PERIODOS.get(periodo)
         desde = self._hoy() - timedelta(days=dias) if dias else None
-        return self._trabajos.buscar(terminos_de_busqueda(texto), id_estado, solo_por_cobrar,
-                                     desde, LIMITE_RESULTADOS)
+        terminos = terminos_de_busqueda(texto)
+        # Los trabajos de clientes dados de baja no aparecen en el listado general,
+        # pero sí cuando se los busca (ej.: por el nombre del cliente).
+        return self._trabajos.buscar(terminos, id_estado, solo_por_cobrar, desde, LIMITE_RESULTADOS,
+                                     incluir_clientes_inactivos=bool(terminos))
 
     def detalle(self, id_trabajo: int) -> DetalleTrabajo:
         detalle = self._trabajos.obtener(id_trabajo)
@@ -280,8 +348,10 @@ class ServicioTrabajos:
     # ---------- alta y modificación ----------
     def crear(self, sesion: Sesion, id_obra: int | None, descripcion: str,
               monto_total: Decimal | None = None, monto_sena: Decimal | None = None,
-              observaciones: str | None = None, fecha_presupuesto: date | None = None) -> int:
-        """fecha_presupuesto: hoy si no se indica; puede ser pasada (trabajo anotado tarde)."""
+              observaciones: str | None = None, fecha_presupuesto: date | None = None,
+              entrega: date | None = None, entrega_aproximada: bool = False) -> int:
+        """fecha_presupuesto: hoy si no se indica; puede ser pasada (trabajo anotado tarde).
+        entrega: entrega pactada (opcional), un día o solo la semana."""
         if id_obra is None:
             raise ErrorTrabajos("Elegí la obra del trabajo.")
         obra = self._obras.obtener(id_obra)
@@ -294,8 +364,9 @@ class ServicioTrabajos:
         fecha_presupuesto = fecha_presupuesto or hoy
         trabajo = validar_trabajo(Trabajo(None, id_obra, self.estado_por_nombre(PRESUPUESTADO).id,
                                           descripcion, monto_total, monto_sena,
-                                          observaciones=observaciones,
-                                          fecha_presupuesto=fecha_presupuesto), hoy)
+                                          observaciones=observaciones, fecha_entrega=entrega,
+                                          fecha_presupuesto=fecha_presupuesto,
+                                          entrega_aproximada=bool(entrega and entrega_aproximada)), hoy)
         nuevo = self._trabajos.crear(trabajo)
         if fecha_presupuesto != hoy:
             self._auditar("CAMBIO_FECHA_PRESUPUESTO", sesion, nuevo,
@@ -307,7 +378,7 @@ class ServicioTrabajos:
 
     def actualizar_datos(self, sesion: Sesion, id_trabajo: int, descripcion: str,
                          observaciones: str | None) -> None:
-        actual = self.detalle(id_trabajo).trabajo
+        actual = self._editable(id_trabajo).trabajo
         self._guardar(replace(actual, descripcion=descripcion, observaciones=observaciones))
 
     def actualizar_pagos(self, sesion: Sesion, id_trabajo: int, monto_total: Decimal | None,
@@ -318,7 +389,7 @@ class ServicioTrabajos:
             raise ValueError(f"Campos de fecha desconocidos: {desconocidas}")
         if FECHA_PRESUPUESTO in fechas and fechas[FECHA_PRESUPUESTO] is None:
             raise ErrorTrabajos("Completá la fecha de presupuesto.")
-        actual = self.detalle(id_trabajo).trabajo
+        actual = self._editable(id_trabajo).trabajo
         nuevo = self._guardar(replace(actual, monto_total=monto_total, monto_sena=monto_sena, **fechas))
         cambios = []
         if actual.monto_total != nuevo.monto_total:
@@ -341,7 +412,7 @@ class ServicioTrabajos:
         """
         if campo not in ("fecha_cobro_sena", "fecha_cobro_saldo"):
             raise ValueError(campo)
-        detalle = self.detalle(id_trabajo)
+        detalle = self._editable(id_trabajo)
         estado = detalle.estado.nombre
         if estado == CANCELADO:
             raise ErrorTrabajos("El trabajo está cancelado: retomalo para registrar cobros.")
@@ -359,7 +430,7 @@ class ServicioTrabajos:
                        fecha: date | None = None) -> None:
         """Avanza un paso (completando la fecha que corresponde), vuelve un paso
         atrás (borrando la fecha de fabricación de ese paso), cancela o retoma."""
-        detalle = self.detalle(id_trabajo)
+        detalle = self._editable(id_trabajo)
         actual = detalle.estado
         nuevo = next((e for e in self.estados() if e.id == id_estado), None)
         if nuevo is None:
@@ -373,6 +444,8 @@ class ServicioTrabajos:
             campo = self.fecha_sugerida(nuevo)
             if campo and fecha is not None:
                 cambios[campo] = fecha
+            if nuevo.nombre == INSTALADO:
+                cambios["entrega_aproximada"] = False   # desde ahora es la fecha real
             if nuevo.nombre == COBRADO:
                 self._controlar_cobro_total(replace(t, **cambios))
         elif nuevo == self.estado_anterior(actual):
@@ -394,6 +467,19 @@ class ServicioTrabajos:
         self._guardar(replace(t, **cambios))
         self._auditar("CAMBIO_ESTADO_TRABAJO", sesion, id_trabajo, f"{actual.nombre} → {nuevo.nombre}")
 
+    def pactar_entrega(self, sesion: Sesion, id_trabajo: int, fecha: date | None, aproximada: bool) -> None:
+        """Entrega pactada con el cliente: un día, o solo la semana (aproximada=True).
+
+        Se puede cambiar hasta que el trabajo se instala; ahí pasa a ser la fecha real.
+        """
+        detalle = self._editable(id_trabajo)
+        if detalle.estado.nombre in (INSTALADO, COBRADO):
+            raise ErrorTrabajos("El trabajo ya está instalado: la fecha de entrega es la real "
+                                "(se corrige en «Editar montos y fechas»).")
+        if detalle.estado.nombre == CANCELADO:
+            raise ErrorTrabajos("El trabajo está cancelado.")
+        self._guardar(replace(detalle.trabajo, fecha_entrega=fecha, entrega_aproximada=bool(fecha and aproximada)))
+
     @staticmethod
     def _controlar_cobro_total(t: Trabajo) -> None:
         if t.monto_sena and not t.fecha_cobro_sena:
@@ -404,7 +490,7 @@ class ServicioTrabajos:
     def eliminar(self, sesion: Sesion, id_trabajo: int) -> None:
         """Solo se eliminan trabajos presupuestados o cancelados: los demás tienen
         compromisos o cobros y se conservan (a lo sumo, se cancelan)."""
-        detalle = self.detalle(id_trabajo)
+        detalle = self._editable(id_trabajo)
         if detalle.estado.nombre not in ESTADOS_QUE_SE_PUEDEN_ELIMINAR:
             raise ErrorTrabajos("Solo se pueden eliminar trabajos presupuestados o cancelados. "
                                 "Si no se va a hacer, cancelalo.")
@@ -414,6 +500,14 @@ class ServicioTrabajos:
                       f"{detalle.estado.nombre})")
 
     # ---------- auxiliares ----------
+    def _editable(self, id_trabajo: int) -> DetalleTrabajo:
+        """Los trabajos de un cliente dado de baja quedan como historial: no se modifican."""
+        detalle = self.detalle(id_trabajo)
+        if not detalle.cliente.es_activo:
+            raise ErrorTrabajos("El cliente está dado de baja: el trabajo queda como historial. "
+                                "Reactivá al cliente para modificarlo.")
+        return detalle
+
     def _guardar(self, trabajo: Trabajo) -> Trabajo:
         estado = next(e for e in self.estados() if e.id == trabajo.id_estado)
         trabajo = validar_trabajo(trabajo, self._hoy(), estado, self.alcanzados(estado))

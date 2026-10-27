@@ -38,6 +38,7 @@ Si la base ya estaba creada, ejecutar además, en orden, las migraciones que fal
 | Script | Qué hace |
 |--------|----------|
 | `06_migracion_fecha_presupuesto.sql` | Agrega la fecha de presupuesto del trabajo (editable), un CHECK para que ninguna fecha sea anterior a ella, su índice y el evento de auditoría `CAMBIO_FECHA_PRESUPUESTO` |
+| `07_migracion_entrega_pactada.sql` | Agrega `entrega_aproximada_tra`: permite pactar la entrega por semana |
 
 `01_tablas.sql` es re-ejecutable: borra las tablas y las vuelve a crear (se pierden los datos). Después hay que volver a correr 02, 03, 04 y 05.
 

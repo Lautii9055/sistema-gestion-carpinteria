@@ -4,10 +4,11 @@ from decimal import Decimal as D
 
 import pytest
 
-from carpinteria.negocio.clientes import ServicioClientes
+from carpinteria.negocio.clientes import ErrorClientes, ServicioClientes
 from carpinteria.negocio.entidades import Cliente, Obra, Sesion, Trabajo, Usuario
 from carpinteria.negocio.trabajos import (ErrorTrabajos, ServicioTrabajos, formato_pesos, leer_fecha,
-                                          leer_monto)
+                                          formatear_al_escribir, formatear_fecha_al_escribir, leer_monto,
+                                          limite_de_entrega, texto_entrega)
 
 from fakes import (AuditoriaEnMemoria, ClientesEnMemoria, ObrasEnMemoria, ParametrosEnMemoria,
                    TrabajosEnMemoria)
@@ -122,7 +123,6 @@ def test_sena_sugerida_es_el_60_por_ciento_redondeado(entorno):
     ({"fecha_cobro_sena": date(2026, 11, 21)}, "futura"),
     ({"fecha_cobro_sena": date(2026, 10, 23)}, "anterior al presupuesto"),
     ({"fecha_entrega": date(2026, 10, 1)}, "anterior al presupuesto"),
-    ({"fecha_cobro_sena": date(2026, 11, 5), "fecha_comienzo": date(2026, 11, 4)}, "confirmación"),
 ])
 def test_fechas_incoherentes(entorno, fechas, mensaje):
     servicio, _, _, _, sesion, id_obra = entorno
@@ -352,3 +352,107 @@ def test_corregir_la_fecha_de_presupuesto_sin_romper_las_demas(entorno):
         servicio.actualizar_pagos(sesion, id_, D(1000), D(600), {"fecha_presupuesto": date(2026, 11, 15)})
     with pytest.raises(ErrorTrabajos, match="Completá"):
         servicio.actualizar_pagos(sesion, id_, D(1000), D(600), {"fecha_presupuesto": None})
+
+
+# ---------- entrega pactada ----------
+def test_comienzo_real_no_puede_ser_anterior_a_la_sena(entorno):
+    servicio, _, _, _, sesion, id_obra = entorno
+    id_ = servicio.crear(sesion, id_obra, "Cocina", D(1000), D(600), fecha_presupuesto=PRESUPUESTO)
+    servicio.registrar_cobro(sesion, id_, "fecha_cobro_sena", date(2026, 11, 5))
+    with pytest.raises(ErrorTrabajos, match="confirmación"):
+        servicio.cambiar_estado(sesion, id_, _estado(servicio, "En producción"), date(2026, 11, 4))
+
+
+def test_entrega_pactada_no_frena_un_trabajo_demorado(entorno):
+    servicio, trabajos, _, _, sesion, id_obra = entorno
+    id_ = servicio.crear(sesion, id_obra, "Cocina", fecha_presupuesto=PRESUPUESTO)
+    servicio.pactar_entrega(sesion, id_, date(2026, 11, 10), aproximada=False)
+    servicio.cambiar_estado(sesion, id_, _estado(servicio, "Confirmado"))
+    servicio.cambiar_estado(sesion, id_, _estado(servicio, "En producción"), date(2026, 11, 2))
+    # Se terminó después de la entrega pactada: se permite (viene demorado).
+    servicio.cambiar_estado(sesion, id_, _estado(servicio, "Terminado"), date(2026, 11, 15))
+    # Al instalar, la entrega real no puede ser anterior a la finalización.
+    with pytest.raises(ErrorTrabajos, match="finalización"):
+        servicio.cambiar_estado(sesion, id_, _estado(servicio, "Instalado"), date(2026, 11, 10))
+    servicio.cambiar_estado(sesion, id_, _estado(servicio, "Instalado"), date(2026, 11, 18))
+    assert trabajos.por_id[id_].fecha_entrega == date(2026, 11, 18)
+
+
+def test_entrega_por_semana(entorno):
+    servicio, trabajos, _, _, sesion, id_obra = entorno
+    id_ = servicio.crear(sesion, id_obra, "Cocina", fecha_presupuesto=PRESUPUESTO)
+    servicio.pactar_entrega(sesion, id_, date(2026, 11, 25), aproximada=True)
+    t = trabajos.por_id[id_]
+    assert t.entrega_aproximada and limite_de_entrega(t) == date(2026, 11, 29)   # domingo de esa semana
+    assert texto_entrega(t) == "Semana del 23/11"
+    servicio.pactar_entrega(sesion, id_, None, aproximada=True)                   # se borra
+    assert trabajos.por_id[id_].fecha_entrega is None
+    assert not trabajos.por_id[id_].entrega_aproximada
+
+
+def test_al_instalar_la_entrega_deja_de_ser_aproximada(entorno):
+    servicio, trabajos, _, _, sesion, id_obra = entorno
+    id_ = servicio.crear(sesion, id_obra, "Cocina", fecha_presupuesto=PRESUPUESTO)
+    servicio.pactar_entrega(sesion, id_, date(2026, 11, 16), aproximada=True)
+    for nombre, fecha in (("Confirmado", None), ("En producción", date(2026, 11, 2)),
+                          ("Terminado", date(2026, 11, 10)), ("Instalado", date(2026, 11, 17))):
+        servicio.cambiar_estado(sesion, id_, _estado(servicio, nombre), fecha)
+    t = trabajos.por_id[id_]
+    assert t.fecha_entrega == date(2026, 11, 17) and not t.entrega_aproximada
+    with pytest.raises(ErrorTrabajos, match="instalado"):
+        servicio.pactar_entrega(sesion, id_, date(2026, 11, 30), aproximada=False)
+
+
+def test_no_se_pacta_entrega_antes_del_presupuesto(entorno):
+    servicio, _, _, _, sesion, id_obra = entorno
+    id_ = servicio.crear(sesion, id_obra, "Cocina")
+    with pytest.raises(ErrorTrabajos, match="anterior al presupuesto"):
+        servicio.pactar_entrega(sesion, id_, date(2026, 11, 1), aproximada=False)
+
+
+@pytest.mark.parametrize("escrito, esperado", [
+    ("12000000", "12.000.000"), ("1250,567", "1.250,56"), ("007", "7"), ("", ""), ("12.000.0000", "120.000.000")])
+def test_puntos_de_miles_al_escribir(escrito, esperado):
+    assert formatear_al_escribir(escrito) == esperado
+
+
+@pytest.mark.parametrize("escrito, esperado", [
+    ("18112026", "18/11/2026"), ("181", "18/1"), ("18", "18"), ("18/11", "18/11"), ("1811", "18/11"),
+    ("18/11/2026", "18/11/2026"), ("181120261", "18/11/2026"), ("5/11/26", "5/11/26"), ("", "")])
+def test_barras_de_fecha_al_escribir(escrito, esperado):
+    assert formatear_fecha_al_escribir(escrito) == esperado
+
+
+def test_leer_fecha_solo_numeros():
+    assert leer_fecha("18112026") == date(2026, 11, 18)
+    assert leer_fecha("181126") == date(2026, 11, 18)
+
+
+# ---------- clientes dados de baja ----------
+def test_no_se_da_de_baja_un_cliente_con_trabajos_en_curso(entorno):
+    servicio, trabajos, clientes, _, sesion, id_obra = entorno
+    servicio_clientes = ServicioClientes(clientes, trabajos.obras)
+    id_ = servicio.crear(sesion, id_obra, "Cocina")
+    with pytest.raises(ErrorClientes, match=r"1 trabajo en curso \(#1 Cocina \(presupuestado\)\)"):
+        servicio_clientes.dar_de_baja(1)
+    servicio.cambiar_estado(sesion, id_, _estado(servicio, "Cancelado"))
+    servicio_clientes.dar_de_baja(1)
+    assert not clientes.por_id[1].es_activo
+
+
+def test_trabajos_de_cliente_dado_de_baja_quedan_como_historial(entorno):
+    servicio, trabajos, clientes, _, sesion, id_obra = entorno
+    servicio_clientes = ServicioClientes(clientes, trabajos.obras)
+    id_ = servicio.crear(sesion, id_obra, "Cocina")
+    servicio.cambiar_estado(sesion, id_, _estado(servicio, "Cancelado"))
+    servicio_clientes.dar_de_baja(1)
+    assert servicio.buscar() == []                                     # no está en el listado general
+    assert [d.trabajo.id for d in servicio.buscar("ferreyra")] == [id_]   # pero se encuentra buscándolo
+    with pytest.raises(ErrorTrabajos, match="historial"):
+        servicio.cambiar_estado(sesion, id_, _estado(servicio, "Presupuestado"))
+    with pytest.raises(ErrorTrabajos, match="historial"):
+        servicio.eliminar(sesion, id_)
+    with pytest.raises(ErrorClientes, match="dado de baja"):
+        servicio_clientes.agregar_obra(Obra(None, 1, "Otra 123", "Tigre"))
+    servicio_clientes.reactivar(1)
+    servicio.eliminar(sesion, id_)

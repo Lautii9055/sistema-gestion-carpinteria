@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from carpinteria.negocio.entidades import Cliente, DetalleTrabajo, Obra
-from carpinteria.negocio.trabajos import (ESTADOS_SIN_COBRO, PERIODOS, formato_fecha, formato_pesos,
-                                          leer_fecha, leer_monto)
+from carpinteria.negocio.trabajos import (ESTADOS_SIN_COBRO, PERIODOS, formatear_al_escribir, formato_fecha,
+                                          formato_pesos, leer_fecha, leer_monto)
 from carpinteria.presentacion import componentes, tema
 from carpinteria.presentacion.tema import SANS_MEDIA, SANS_SEMI
 
@@ -29,15 +29,18 @@ def campos_montos(app: Aplicacion, total_inicial: str = "", sena_inicial: str = 
     p = app.paleta
     porcentaje, _ = app.ejecutar(app.trabajos.porcentaje_sena)
     texto_porcentaje = f"{porcentaje.normalize():f}" if porcentaje is not None else "60"
-    filtro = ft.InputFilter(regex_string=r"^[0-9$., ]*$", allow=True, replacement_string="")
+    filtro = ft.InputFilter(regex_string=r"^[0-9., ]*$", allow=True, replacement_string="")
     total = tema.campo("Monto total (opcional)", p, value=total_inicial, prefix_icon=ft.Icons.ATTACH_MONEY,
-                       hint_text="por ejemplo: 2.800.000", input_filter=filtro)
+                       hint_text="por ejemplo: 2.800.000 (decimales con coma)", input_filter=filtro)
     sena = tema.campo("Seña", p, value=sena_inicial, prefix_icon=ft.Icons.ATTACH_MONEY,
                       input_filter=filtro)
     ayuda = ft.Text("", size=13, color=p.texto_tenue)
     estado = {"sena_tocada": bool(sena_inicial)}
 
     def al_cambiar_total(_) -> None:
+        con_puntos = formatear_al_escribir(total.value)
+        if con_puntos != total.value:
+            total.value = con_puntos
         try:
             monto = leer_monto(total.value)
         except Exception:
@@ -53,11 +56,41 @@ def campos_montos(app: Aplicacion, total_inicial: str = "", sena_inicial: str = 
         app.page.update()
 
     def al_cambiar_sena(_) -> None:
+        con_puntos = formatear_al_escribir(sena.value)
+        if con_puntos != sena.value:
+            sena.value = con_puntos
+            app.page.update()
         estado["sena_tocada"] = bool(sena.value)
 
     total.on_change = al_cambiar_total
     sena.on_change = al_cambiar_sena
     return total, sena, ayuda
+
+
+def campos_entrega(p: tema.Paleta, fecha: date | None = None, aproximada: bool = False,
+                   etiqueta: str = "Entrega pactada (opcional)"):
+    """Fecha de entrega pactada y si lo pactado es solo la semana.
+
+    Devuelve el control y una función leer() → (fecha, aproximada).
+    """
+    campo = componentes.campo_fecha(etiqueta, formato_fecha(fecha), p,
+                                    helper="El día en que tiene que estar instalado.")
+    semana = ft.Checkbox(label="Solo se sabe la semana", value=aproximada, active_color=p.acento,
+                         check_color=p.sobre_acento, label_style=ft.TextStyle(color=p.texto_secundario, size=14))
+
+    def actualizar_ayuda(_=None) -> None:
+        campo.helper = ("Cualquier día de esa semana: se muestra «Semana del lunes»."
+                        if semana.value else "El día en que tiene que estar instalado.")
+        campo.update()
+
+    semana.on_change = actualizar_ayuda
+
+    def leer():
+        return leer_fecha(campo.value, "la entrega pactada"), bool(semana.value)
+
+    control = ft.Row([ft.Container(campo, expand=True), ft.Container(semana, padding=ft.Padding.only(top=12))],
+                     spacing=12, vertical_alignment=ft.CrossAxisAlignment.START)
+    return control, leer
 
 
 # ---------- alta ----------
@@ -69,6 +102,7 @@ def abrir_nuevo(app: Aplicacion, cliente: Cliente | None = None, obra: Obra | No
     descripcion = tema.campo("Descripción", p, autofocus=cliente is not None, max_length=200,
                              hint_text="por ejemplo: Cocina completa, Placard dormitorio")
     total, sena, ayuda = campos_montos(app)
+    entrega, leer_entrega = campos_entrega(p)
     observaciones = tema.campo("Observaciones (opcional)", p, multiline=True, min_lines=2, max_lines=4,
                                max_length=500)
     fecha_presupuesto = componentes.campo_fecha("Fecha de presupuesto", formato_fecha(date.today()), p,
@@ -160,10 +194,12 @@ def abrir_nuevo(app: Aplicacion, cliente: Cliente | None = None, obra: Obra | No
 
     def guardar(_=None) -> None:
         def crear():
+            fecha_entrega, aproximada = leer_entrega()
             return app.trabajos.crear(
                 app.sesion, elegido["obra"].id if elegido["obra"] else None, descripcion.value or "",
                 leer_monto(total.value, "el monto total"), leer_monto(sena.value, "la seña"),
-                observaciones.value, leer_fecha(fecha_presupuesto.value, "la fecha de presupuesto"))
+                observaciones.value, leer_fecha(fecha_presupuesto.value, "la fecha de presupuesto"),
+                fecha_entrega, aproximada)
 
         if elegido["cliente"] is None:
             nuevo, error = None, "Elegí el cliente del trabajo."
@@ -184,7 +220,7 @@ def abrir_nuevo(app: Aplicacion, cliente: Cliente | None = None, obra: Obra | No
                    ft.Row([ft.Container(descripcion, expand=3), ft.Container(fecha_presupuesto, expand=2)],
                           spacing=12, vertical_alignment=ft.CrossAxisAlignment.START),
                    ft.Row([ft.Container(total, expand=True), ft.Container(sena, expand=True)], spacing=12),
-                   ayuda, observaciones],
+                   ayuda, entrega, observaciones],
                   spacing=14, tight=True, scroll=ft.ScrollMode.AUTO),
         [componentes.boton_cancelar(p, lambda _: app.cerrar_dialogo()),
          tema.boton_principal("Crear trabajo", p, guardar)],

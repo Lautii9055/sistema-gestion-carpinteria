@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 import flet as ft
 
+from carpinteria.negocio.trabajos import formatear_fecha_al_escribir
 from carpinteria.presentacion import tema
 from carpinteria.presentacion.tema import Paleta, SANS_SEMI
 
@@ -112,17 +113,25 @@ def boton_cancelar(p: Paleta, al_tocar) -> ft.TextButton:
 
 def boton_con_icono(texto: str, icono, p: Paleta, al_tocar, principal: bool = True,
                     **opciones) -> ft.Control:
-    """Botón con ícono a la izquierda (principal dorado o secundario con borde)."""
-    color = p.sobre_acento if principal else p.texto
+    """Botón con ícono a la izquierda (principal dorado o secundario con borde).
+
+    Deshabilitado se ve apagado, para que no parezca que hace algo.
+    """
+    apagado = bool(opciones.get("disabled"))
+    if apagado:
+        color = p.texto_tenue
+    else:
+        color = p.sobre_acento if principal else p.texto
     contenido = ft.Row([ft.Icon(icono, color=color, size=20),
                         ft.Text(texto, font_family=SANS_SEMI if principal else tema.SANS_MEDIA,
                                 size=15, color=color)], spacing=8, tight=True)
     forma = ft.RoundedRectangleBorder(radius=tema.RADIO)
-    if principal:
+    if principal and not apagado:
         return ft.FilledButton(content=contenido, on_click=al_tocar, height=48,
                                style=ft.ButtonStyle(bgcolor=p.acento, shape=forma), **opciones)
-    return ft.OutlinedButton(content=contenido, on_click=al_tocar, height=44,
-                             style=ft.ButtonStyle(side=ft.BorderSide(1, p.borde_fuerte), shape=forma),
+    return ft.OutlinedButton(content=contenido, on_click=al_tocar, height=48 if principal else 44,
+                             style=ft.ButtonStyle(side=ft.BorderSide(1, p.borde if apagado else p.borde_fuerte),
+                                                  shape=forma),
                              **opciones)
 
 
@@ -181,6 +190,14 @@ def campo_fecha(etiqueta: str, valor: str, p: Paleta, **opciones) -> ft.TextFiel
                        input_filter=ft.InputFilter(regex_string=r"^[0-9/\-.]{0,10}$", allow=True,
                                                    replacement_string=""),
                        **opciones)
+
+    def al_escribir(_) -> None:
+        con_barras = formatear_fecha_al_escribir(campo.value)
+        if con_barras != campo.value:
+            campo.value = con_barras
+            campo.update()
+
+    campo.on_change = al_escribir
 
     def hoy(_):
         campo.value = f"{date.today():%d/%m/%Y}"

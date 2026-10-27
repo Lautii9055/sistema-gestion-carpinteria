@@ -144,7 +144,13 @@ class ObrasEnMemoria:
         self.por_id[obra.id] = obra
 
     def trabajos_de_la_obra(self, id_obra):
-        return self.trabajos.get(id_obra, [])
+        from carpinteria.negocio.entidades import TrabajoResumen
+        reales = []
+        repo = getattr(self, "repo_trabajos", None)
+        if repo is not None:   # si hay trabajos en memoria, salen de ahí (como el JOIN de la base)
+            reales = [TrabajoResumen(t.id, t.descripcion, repo._detalle(t).estado.nombre, t.fecha_presupuesto)
+                      for t in repo.por_id.values() if t.id_obra == id_obra]
+        return self.trabajos.get(id_obra, []) + reales
 
 
 class ClientesEnMemoria:
@@ -210,6 +216,7 @@ class TrabajosEnMemoria:
         self._reloj = reloj
         self._estados = [EstadoTrabajo(i + 1, n, i + 1) for i, n in enumerate(ESTADOS)]
         self.ultimos_filtros = None
+        obras.repo_trabajos = self
 
     def estados(self):
         return list(self._estados)
@@ -220,7 +227,7 @@ class TrabajosEnMemoria:
         return DetalleTrabajo(t, next(e for e in self._estados if e.id == t.id_estado), obra,
                               self.clientes.por_id[obra.id_cliente])
 
-    def buscar(self, terminos, id_estado, solo_por_cobrar, desde, limite):
+    def buscar(self, terminos, id_estado, solo_por_cobrar, desde, limite, incluir_clientes_inactivos=False):
         self.ultimos_filtros = (terminos, id_estado, solo_por_cobrar, desde, limite)
         resultado = []
         for t in sorted(self.por_id.values(), key=lambda t: (t.fecha_presupuesto, t.id), reverse=True):
@@ -228,6 +235,8 @@ class TrabajosEnMemoria:
             textos = [t.descripcion, d.cliente.nombre, d.cliente.apellido, d.obra.direccion,
                       d.obra.localidad, d.obra.alias or "", d.estado.nombre]
             if id_estado is not None and t.id_estado != id_estado:
+                continue
+            if not incluir_clientes_inactivos and not d.cliente.es_activo:
                 continue
             if desde is not None and t.fecha_presupuesto < desde:
                 continue
@@ -255,3 +264,8 @@ class TrabajosEnMemoria:
 
     def eliminar(self, id_trabajo):
         del self.por_id[id_trabajo]
+
+    def activos(self, excluir_estados, limite):
+        resultado = [self._detalle(t) for t in sorted(self.por_id.values(),
+                                                      key=lambda t: (t.fecha_presupuesto, t.id))]
+        return [d for d in resultado if d.estado.nombre not in excluir_estados][:limite]

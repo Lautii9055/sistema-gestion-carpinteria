@@ -131,6 +131,7 @@ class Trabajo:
     fecha_cobro_saldo: date | None = None
     observaciones: str | None = None
     fecha_presupuesto: date | None = None   # editable; fecha_alta es cuándo se cargó
+    entrega_aproximada: bool = False         # True: de la entrega pactada solo se sabe la semana
 
     @property
     def saldo(self) -> Decimal | None:
@@ -162,3 +163,25 @@ class DetalleTrabajo:
     estado: EstadoTrabajo
     obra: Obra
     cliente: Cliente
+
+
+# ---------- inicio ----------
+@dataclass(frozen=True)
+class Alerta:
+    """Algo para resolver que se muestra en el inicio."""
+    titulo: str
+    detalle: str
+    id_trabajo: int | None = None
+    urgente: bool = False
+
+
+@dataclass(frozen=True)
+class ResumenInicio:
+    en_produccion: int
+    entregas_proximas: list[DetalleTrabajo]
+    por_cobrar: Decimal
+    trabajos_por_cobrar: int
+    presupuestos_sin_confirmar: int
+    dias_presupuesto_mas_antiguo: int | None
+    en_curso: list[DetalleTrabajo]
+    alertas: list[Alerta]

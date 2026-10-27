@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 2.4 (flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2)
+**Versión del documento:** 2.6 (baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -80,6 +80,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
 
 ### M2 — Clientes
 - **RF-04** Alta, modificación, baja lógica y consulta de clientes (nombre, teléfono, email opcional, observaciones).
+- **RF-04.1** Baja de un cliente: no se permite si tiene trabajos en curso (no cobrados ni cancelados); el sistema los lista para terminarlos o cancelarlos primero. Un cliente dado de baja no admite obras ni trabajos nuevos, ni cambios en sus obras. Sus trabajos terminados quedan como historial: no aparecen en el listado general de trabajos (sí al buscarlos, ej.: por el nombre del cliente), se ven en su ficha y no se pueden modificar hasta reactivarlo.
 - **RF-05** Un cliente puede tener una o más obras (casas o inmuebles), cada una con su dirección, localidad y un alias opcional.
 - **RF-05.1** Historial por obra: se pueden consultar todos los trabajos realizados en una misma obra y crear trabajos nuevos en ella, aunque hayan pasado años.
 - **RF-06** Búsquedas flexibles en todo el sistema:
@@ -153,8 +154,9 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
   - Fecha de finalización (fin de fabricación)
   - Fecha de entrega (instalación)
   - Fecha de cobro del saldo
-- **RF-26.2** El sistema valida que las fechas sean coherentes: ninguna es anterior a la fecha de presupuesto; cobro de la seña ≤ comienzo ≤ finalización ≤ entrega; cobro de la seña ≤ cobro del saldo; los cobros no pueden ser futuros, y tampoco la fecha de un estado ya alcanzado. Las fechas de estados todavía no alcanzados (ej.: entrega pactada) pueden ser futuras y se muestran como previstas.
+- **RF-26.2** El sistema valida que las fechas sean coherentes: ninguna es anterior a la fecha de presupuesto; cobro de la seña ≤ comienzo ≤ finalización ≤ entrega; cobro de la seña ≤ cobro del saldo; los cobros no pueden ser futuros, y tampoco la fecha de un estado ya alcanzado. Las fechas de estados todavía no alcanzados (ej.: entrega pactada) pueden ser futuras y se muestran como previstas; el orden entre fechas se exige entre fechas reales (o entre previstas), no entre una real y una prevista que quedó atrás.
 - **RF-26.3** Al cambiar el estado del trabajo, el sistema sugiere completar la fecha correspondiente: Confirmado → cobro de la seña; En producción → comienzo; Terminado → finalización; Instalado → entrega; Cobrado → cobro del saldo.
+- **RF-26.4** Entrega pactada: mientras el trabajo no está instalado, la fecha de entrega es la pactada con el cliente, que puede ser un día ("tiene que estar instalado el jueves 5") o solo una semana ("la semana del 2/11"). Se carga al crear el trabajo o después, y al pasar a Instalado se reemplaza por la fecha real. Si pasa el día (o termina la semana) sin instalar, el inicio la marca como entrega atrasada. Una entrega pactada que quedó atrás no impide registrar los pasos de fabricación de un trabajo demorado.
 - **RF-27** El sistema sugiere la seña como un porcentaje del total (por defecto 60%) y calcula el saldo como total − seña.
 - **RF-28** Listado de trabajos filtrable por estado y vista de trabajos con saldo pendiente.
 

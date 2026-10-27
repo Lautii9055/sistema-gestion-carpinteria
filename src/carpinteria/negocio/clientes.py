@@ -11,6 +11,7 @@ import re
 from dataclasses import replace
 
 from carpinteria.negocio.autenticacion import ErrorAutenticacion
+from carpinteria.negocio.estados import ESTADOS_FINALES
 from carpinteria.negocio.entidades import Cliente, ClienteResumen, FichaCliente, Obra, ObraConTrabajos
 from carpinteria.negocio.puertos import RepositorioClientes, RepositorioObras
 
@@ -117,7 +118,21 @@ class ServicioClientes:
         self._controlar_telefono_repetido(cliente)
         self._clientes.actualizar(cliente)
 
+    def trabajos_en_curso(self, id_cliente: int) -> list[str]:
+        """Trabajos del cliente que todavía no se cobraron ni se cancelaron."""
+        return [f"#{t.id} {t.descripcion} ({t.estado.lower()})"
+                for o in self._obras.listar_por_cliente(id_cliente)
+                for t in self._obras.trabajos_de_la_obra(o.id) if t.estado not in ESTADOS_FINALES]
+
     def dar_de_baja(self, id_cliente: int) -> None:
+        """No se da de baja a un cliente con trabajos en curso: primero se terminan o se cancelan.
+        Sus trabajos cobrados o cancelados quedan como historial."""
+        en_curso = self.trabajos_en_curso(id_cliente)
+        if en_curso:
+            raise ErrorClientes(
+                f"No se puede dar de baja: tiene {len(en_curso)} trabajo{'s' if len(en_curso) > 1 else ''} "
+                f"en curso ({', '.join(en_curso[:3])}{'…' if len(en_curso) > 3 else ''}). "
+                "Terminalos o cancelalos primero.")
         self._clientes.cambiar_estado(id_cliente, False)
 
     def reactivar(self, id_cliente: int) -> None:
@@ -134,6 +149,7 @@ class ServicioClientes:
     def agregar_obra(self, obra: Obra) -> int:
         if obra.id_cliente is None:
             raise ErrorClientes("Falta indicar el cliente de la obra.")
+        self._controlar_cliente_activo(obra.id_cliente)
         obra = validar_obra(obra)
         self._controlar_obra_repetida(obra)
         return self._obras.crear(obra)
@@ -141,9 +157,17 @@ class ServicioClientes:
     def actualizar_obra(self, obra: Obra) -> None:
         if obra.id is None:
             raise ErrorClientes("Falta indicar qué obra se modifica.")
+        self._controlar_cliente_activo(obra.id_cliente)
         obra = validar_obra(obra)
         self._controlar_obra_repetida(obra)
         self._obras.actualizar(obra)
+
+    def _controlar_cliente_activo(self, id_cliente: int) -> None:
+        cliente = self._clientes.obtener(id_cliente)
+        if cliente is None:
+            raise ErrorClientes("El cliente ya no existe.")
+        if not cliente.es_activo:
+            raise ErrorClientes("El cliente está dado de baja: reactivalo para cargarle o cambiarle obras.")
 
     def _controlar_obra_repetida(self, obra: Obra) -> None:
         if self._obras.existe(obra.id_cliente, obra.direccion, obra.localidad, obra.id):

@@ -8,7 +8,7 @@ import flet as ft
 
 from carpinteria.negocio.entidades import DetalleTrabajo, EstadoTrabajo
 from carpinteria.negocio.trabajos import (CAMPOS_DE_FECHA, CANCELADO, COBRADO, FECHA_PRESUPUESTO,
-                                          ESTADOS_QUE_SE_PUEDEN_ELIMINAR, NOMBRE_DE_FECHA, PRESUPUESTADO,
+                                          ESTADOS_QUE_SE_PUEDEN_ELIMINAR, INSTALADO, texto_entrega, NOMBRE_DE_FECHA, PRESUPUESTADO,
                                           formato_fecha, formato_pesos, leer_fecha, leer_monto)
 from carpinteria.presentacion import componentes, tema, vista_trabajos
 from carpinteria.presentacion.tema import SANS_MEDIA, SANS_SEMI, SERIF
@@ -56,11 +56,16 @@ def _pasar_a(app: Aplicacion, d: DetalleTrabajo, estado: EstadoTrabajo) -> None:
     campo_fecha = None
     if campo:
         actual = getattr(t, campo)
-        campo_fecha = componentes.campo_fecha(NOMBRE_DE_FECHA[campo], formato_fecha(actual or date.today()),
-                                              p, autofocus=True)
-        explicacion = (f"Ya figura cobrado el {actual:%d/%m/%Y}. Confirmá o corregí la fecha."
-                       if campo == "fecha_cobro_saldo" and actual
-                       else f"Se registra la fecha de {NOMBRE_DE_FECHA[campo].lower()}. Podés corregirla.")
+        hoy = date.today()
+        sugerida = actual if actual and actual <= hoy else hoy   # una fecha prevista futura no es real
+        campo_fecha = componentes.campo_fecha(NOMBRE_DE_FECHA[campo], formato_fecha(sugerida), p, autofocus=True)
+        if campo == "fecha_cobro_saldo" and actual:
+            explicacion = f"Ya figura cobrado el {actual:%d/%m/%Y}. Confirmá o corregí la fecha."
+        elif campo == "fecha_entrega" and actual:
+            explicacion = (f"La entrega pactada era: {texto_entrega(t).lower()}. "
+                           "Indicá la fecha real de instalación.")
+        else:
+            explicacion = f"Se registra la fecha de {NOMBRE_DE_FECHA[campo].lower()}. Podés corregirla."
         controles: list[ft.Control] = [ft.Text(explicacion, size=15, color=p.texto_secundario), campo_fecha]
     elif estado.nombre == CANCELADO:
         controles = [ft.Text("El trabajo queda cancelado con todos sus datos. Si después se retoma, vuelve "
@@ -177,6 +182,28 @@ def _registrar_cobro(app: Aplicacion, d: DetalleTrabajo, campo: str) -> None:
     _dialogo_con_error(app, f"Registrar cobro de {que}", controles, "Registrar", accion)
 
 
+def _pactar_entrega(app: Aplicacion, d: DetalleTrabajo) -> None:
+    p = app.paleta
+    t = d.trabajo
+    campos, leer = vista_trabajos.campos_entrega(p, t.fecha_entrega, t.entrega_aproximada, "Entrega pactada")
+
+    def accion() -> str | None:
+        def guardar():
+            fecha, aproximada = leer()
+            app.trabajos.pactar_entrega(app.sesion, t.id, fecha, aproximada)
+        _, error = app.ejecutar(guardar)
+        if error:
+            return error
+        app.cerrar_dialogo()
+        _recargar(app, t.id, "Entrega pactada guardada.")
+        return None
+
+    _dialogo_con_error(app, "Entrega pactada", [
+        ft.Text("Cuándo tiene que estar instalado. Si lo pactado es una semana, marcá «Solo se sabe la "
+                "semana». Para quitarla, dejá la fecha vacía.", size=15, color=p.texto_secundario),
+        campos], "Guardar", accion, 520)
+
+
 def _eliminar(app: Aplicacion, d: DetalleTrabajo) -> None:
     p = app.paleta
 
@@ -220,6 +247,8 @@ def _tarjeta_estado(app: Aplicacion, d: DetalleTrabajo) -> ft.Container:
         fecha = _fecha_de(d, e, app)
         if fecha and hecho:
             nota = f"{fecha:%d/%m}"
+        elif fecha and e.nombre == INSTALADO:
+            nota = f"pactada {texto_entrega(d.trabajo).lower()}"
         elif fecha and e.nombre == COBRADO:
             nota = f"pagado {fecha:%d/%m}"     # pago anticipado: el trabajo sigue su curso
         elif fecha:
@@ -267,8 +296,9 @@ def _tarjeta_estado(app: Aplicacion, d: DetalleTrabajo) -> ft.Container:
     if cancelado:
         contenido.append(tema.aviso("Trabajo cancelado. Se conservan todos sus datos y se puede retomar.",
                                     p, tipo="info"))
-    contenido += [ft.Row(pasos, spacing=10, vertical_alignment=ft.CrossAxisAlignment.START),
-                  ft.Row(acciones, spacing=10)]
+    contenido.append(ft.Row(pasos, spacing=10, vertical_alignment=ft.CrossAxisAlignment.START))
+    if d.cliente.es_activo:   # cliente dado de baja: el trabajo es historial, sin acciones
+        contenido.append(ft.Row(acciones, spacing=10))
     return componentes.tarjeta(ft.Column(contenido, spacing=18), p, padding=22)
 
 
@@ -282,6 +312,7 @@ def _tarjeta_pagos(app: Aplicacion, d: DetalleTrabajo) -> ft.Container:
     t = d.trabajo
     editar = ft.TextButton(content=ft.Text("Editar montos y fechas", color=p.acento_texto, size=14),
                            on_click=lambda _: _editar_pagos(app, d), height=40)
+    editar.visible = d.cliente.es_activo
     titulo = ft.Row([tema.titulo("Pagos", p, 26), ft.Container(expand=True), editar])
     if t.monto_total is None:
         return componentes.tarjeta(ft.Column([
@@ -305,7 +336,7 @@ def _tarjeta_pagos(app: Aplicacion, d: DetalleTrabajo) -> ft.Container:
                         color=p.exito if t.fecha_cobro_saldo else p.texto)],
                vertical_alignment=ft.CrossAxisAlignment.END),
     ]
-    if d.estado.nombre != CANCELADO:
+    if d.estado.nombre != CANCELADO and d.cliente.es_activo:
         if t.monto_sena and not sena_cobrada:
             filas.append(tema.boton_secundario("Registrar cobro de la seña", p,
                                                lambda _: _registrar_cobro(app, d, "fecha_cobro_sena")))
@@ -325,11 +356,21 @@ def _tarjeta_fechas(app: Aplicacion, d: DetalleTrabajo) -> ft.Container:
     if t.fecha_alta and t.fecha_presupuesto and t.fecha_alta.date() != t.fecha_presupuesto:
         filas.append(ft.Text(f"Cargado en el sistema el {t.fecha_alta:%d/%m/%Y}", size=12,
                              color=p.texto_tenue, italic=True))
+    instalado = "Instalado" in app.trabajos.alcanzados(d.estado)
     for campo in ("fecha_cobro_sena", "fecha_comienzo", "fecha_finalizacion", "fecha_entrega",
                   "fecha_cobro_saldo"):
-        valor = getattr(d.trabajo, campo)
+        valor = getattr(t, campo)
+        if campo == "fecha_entrega" and valor and not instalado:
+            filas.append(_fila_importe("Entrega pactada", texto_entrega(t), p, p.acento_texto))
+            continue
         filas.append(_fila_importe(NOMBRE_DE_FECHA[campo], formato_fecha(valor) or "—", p,
                                    None if valor else p.texto_tenue))
+    if not instalado and d.estado.nombre != CANCELADO and d.cliente.es_activo:
+        filas.append(ft.TextButton(
+            content=ft.Row([ft.Icon(ft.Icons.EVENT_OUTLINED, size=18, color=p.acento_texto),
+                            ft.Text("Cambiar entrega pactada" if t.fecha_entrega else "Pactar entrega",
+                                    color=p.acento_texto, size=14)], spacing=6, tight=True),
+            on_click=lambda _: _pactar_entrega(app, d), height=40))
     return componentes.tarjeta(ft.Column(filas, spacing=10), p, padding=20)
 
 
@@ -361,13 +402,17 @@ def construir(app: Aplicacion, id_trabajo: int) -> ft.Control:
                     color=p.texto_secundario, selectable=True),
         ], spacing=6, expand=True),
         componentes.boton_con_icono("Editar datos", ft.Icons.EDIT_OUTLINED, p,
-                                    lambda _: _editar_datos(app, d), principal=False),
+                                    lambda _: _editar_datos(app, d), principal=False,
+                                    disabled=not c.es_activo),
         componentes.boton_con_icono("Listado de corte", ft.Icons.DESCRIPTION_OUTLINED, p, None,
                                     disabled=True, tooltip="Disponible cuando esté el despiece"),
     ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.END)
 
+    aviso_baja: list[ft.Control] = [] if c.es_activo else [tema.aviso(
+        f"{c.nombre_completo} está dado de baja: este trabajo queda como historial y no se puede modificar. "
+        "Para cambiarlo, reactivá al cliente desde su ficha.", p, tipo="info")]
     partes: list[ft.Control] = [
-        ruta, encabezado, _tarjeta_estado(app, d),
+        ruta, *aviso_baja, encabezado, _tarjeta_estado(app, d),
         ft.ResponsiveRow([
             ft.Container(_tarjeta_pagos(app, d), col={"xs": 12, "lg": 7}),
             ft.Container(_tarjeta_fechas(app, d), col={"xs": 12, "lg": 5}),

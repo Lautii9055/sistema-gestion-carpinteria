@@ -172,7 +172,8 @@ CREATE TABLE dbo.Trabajo (
     fecha_cobro_sena_tra   DATE           NULL,
     fecha_comienzo_tra     DATE           NULL,
     fecha_finalizacion_tra DATE           NULL,
-    fecha_entrega_tra      DATE           NULL,
+    fecha_entrega_tra      DATE           NULL,       -- pactada (antes de instalar) o real (instalado)
+    entrega_aproximada_tra BIT            NOT NULL CONSTRAINT DF_Trabajo_entrega_aproximada DEFAULT (0),  -- 1 = solo se pactó la semana
     fecha_cobro_saldo_tra  DATE           NULL,
     observaciones_tra      NVARCHAR(500)  NULL,
     CONSTRAINT PK_Trabajo PRIMARY KEY (id_trabajo),
