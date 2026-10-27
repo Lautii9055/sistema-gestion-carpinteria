@@ -18,17 +18,20 @@ from carpinteria.datos.conexion import ErrorConexion
 from carpinteria.datos.repositorios import (RepositorioAuditoriaSql, RepositorioParametrosSql,
                                             RepositorioUsuariosSql)
 from carpinteria.datos.repositorios_clientes import RepositorioClientesSql, RepositorioObrasSql
+from carpinteria.datos.repositorios_materiales import RepositorioMaterialesSql
 from carpinteria.datos.repositorios_trabajos import RepositorioTrabajosSql
 from carpinteria.negocio.auditoria import ServicioAuditoria
 from carpinteria.negocio.autenticacion import ErrorAutenticacion, ServicioAutenticacion
 from carpinteria.negocio.clientes import ServicioClientes
 from carpinteria.negocio.inicio import ServicioInicio
+from carpinteria.negocio.materiales import ServicioMateriales
 from carpinteria.negocio.trabajos import ServicioTrabajos
 from carpinteria.negocio.entidades import Sesion
 from carpinteria.negocio.usuarios import ServicioUsuarios
 from carpinteria.presentacion import (componentes, shell, tema, vista_auditoria,
                                       vista_cambio_contrasena, vista_clientes, vista_ficha_cliente,
-                                      vista_inicio, vista_ingreso, vista_trabajo, vista_trabajos,
+                                      vista_inicio, vista_ingreso, vista_materiales, vista_trabajo,
+                                      vista_trabajos,
                                       vista_usuarios)
 
 registro = logging.getLogger("carpinteria")
@@ -58,7 +61,8 @@ def configurar_registro() -> Path:
 class Aplicacion:
     def __init__(self, page: ft.Page, autenticacion: ServicioAutenticacion,
                  usuarios: ServicioUsuarios, auditoria: ServicioAuditoria,
-                 clientes: ServicioClientes, trabajos: ServicioTrabajos, inicio: ServicioInicio) -> None:
+                 clientes: ServicioClientes, trabajos: ServicioTrabajos, inicio: ServicioInicio,
+                 materiales: ServicioMateriales) -> None:
         self.page = page
         self.autenticacion = autenticacion
         self.usuarios = usuarios
@@ -66,6 +70,7 @@ class Aplicacion:
         self.clientes = clientes
         self.trabajos = trabajos
         self.inicio = inicio
+        self.materiales = materiales
         self.recuerdos: dict = {}  # estado de cada pantalla (ej.: la última búsqueda)
         self.modo_oscuro = True
         self.sesion: Sesion | None = None
@@ -136,6 +141,7 @@ class Aplicacion:
             "clientes": lambda: vista_clientes.construir(self),
             "cliente": lambda: vista_ficha_cliente.construir(self, datos["id_cliente"]),
             "trabajos": lambda: vista_trabajos.construir(self),
+            "materiales": lambda: vista_materiales.construir(self),
             "trabajo": lambda: vista_trabajo.construir(self, datos["id_trabajo"]),
             "usuarios": lambda: vista_usuarios.construir(self),
             "auditoria": lambda: vista_auditoria.construir(self),
@@ -259,6 +265,7 @@ def main(page: ft.Page) -> None:
         trabajos=ServicioTrabajos(repositorio_trabajos, repositorio_clientes, repositorio_obras,
                                   repositorio_auditoria, repositorio_parametros),
         inicio=ServicioInicio(repositorio_trabajos),
+        materiales=ServicioMateriales(RepositorioMaterialesSql()),
     )
     page.run_task(app.vigilar_inactividad)
     app.mostrar_ingreso()

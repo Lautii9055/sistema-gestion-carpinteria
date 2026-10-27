@@ -17,7 +17,7 @@ SECCIONES_PRINCIPALES = [
     ("inicio", "Inicio", ft.Icons.HOME_OUTLINED, True),
     ("trabajos", "Trabajos", ft.Icons.TABLE_CHART_OUTLINED, True),
     ("clientes", "Clientes", ft.Icons.PEOPLE_OUTLINE, True),
-    ("materiales", "Materiales", ft.Icons.LAYERS_OUTLINED, False),
+    ("materiales", "Materiales", ft.Icons.LAYERS_OUTLINED, True),
     ("retazos", "Retazos", ft.Icons.VIEW_QUILT_OUTLINED, False),
 ]
 SECCIONES_CONFIGURACION = [

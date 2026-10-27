@@ -269,3 +269,73 @@ class TrabajosEnMemoria:
         resultado = [self._detalle(t) for t in sorted(self.por_id.values(),
                                                       key=lambda t: (t.fecha_presupuesto, t.id))]
         return [d for d in resultado if d.estado.nombre not in excluir_estados][:limite]
+
+
+class MaterialesEnMemoria:
+    """Catálogo en memoria. en_uso_*: ids que "usa algún trabajo"."""
+    def __init__(self) -> None:
+        self.m, self.c, self.p, self.l = {}, {}, {}, {}
+        self.placas_en_uso, self.colores_en_uso, self.listones_en_uso = set(), set(), set()
+        self._siguiente_material = 100
+
+    @staticmethod
+    def _nuevo(d):
+        return max(d, default=0) + 1
+
+    def marcas(self):
+        return list(self.m.values())
+
+    def crear_marca(self, marca):
+        i = self._nuevo(self.m); self.m[i] = replace(marca, id=i); return i
+
+    def actualizar_marca(self, marca):
+        self.m[marca.id] = marca
+
+    def eliminar_marca(self, id_marca):
+        del self.m[id_marca]
+
+    def marca_en_uso(self, id_marca):
+        return any(c.id_marca == id_marca for c in self.c.values())
+
+    def colores(self):
+        return [replace(c, marca=self.m[c.id_marca].nombre, marca_activa=self.m[c.id_marca].es_activo)
+                for c in self.c.values()]
+
+    def crear_color(self, color):
+        i = self._nuevo(self.c); self.c[i] = replace(color, id=i); return i
+
+    def actualizar_color(self, color):
+        self.c[color.id] = color
+
+    def eliminar_color(self, id_color):
+        del self.c[id_color]
+
+    def color_en_uso(self, id_color):
+        return id_color in self.colores_en_uso or any(p.id_color == id_color for p in self.p.values())
+
+    def placas(self):
+        colores = {c.id: c for c in self.colores()}
+        return [replace(p, color=colores[p.id_color], en_uso=p.id in self.placas_en_uso) for p in self.p.values()]
+
+    def crear_placa(self, placa):
+        self._siguiente_material += 1
+        i = self._siguiente_material; self.p[i] = replace(placa, id=i); return i
+
+    def actualizar_placa(self, placa):
+        self.p[placa.id] = replace(placa, color=None, en_uso=False)
+
+    def eliminar_placa(self, id_placa):
+        del self.p[id_placa]
+
+    def listones(self):
+        return [replace(x, en_uso=x.id in self.listones_en_uso) for x in self.l.values()]
+
+    def crear_liston(self, liston):
+        self._siguiente_material += 1
+        i = self._siguiente_material; self.l[i] = replace(liston, id=i); return i
+
+    def actualizar_liston(self, liston):
+        self.l[liston.id] = replace(liston, en_uso=False)
+
+    def eliminar_liston(self, id_liston):
+        del self.l[id_liston]

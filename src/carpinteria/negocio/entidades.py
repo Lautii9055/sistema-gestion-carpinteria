@@ -185,3 +185,56 @@ class ResumenInicio:
     dias_presupuesto_mas_antiguo: int | None
     en_curso: list[DetalleTrabajo]
     alertas: list[Alerta]
+
+
+# ---------- catálogo de materiales (M3) ----------
+@dataclass(frozen=True)
+class MarcaPlaca:
+    id: int | None
+    nombre: str
+    es_activo: bool = True
+
+
+@dataclass(frozen=True)
+class ColorPlaca:
+    id: int | None
+    id_marca: int
+    nombre: str | None
+    codigo: str | None
+    tiene_veta: bool = False
+    es_activo: bool = True
+    marca: str = ""   # nombre de la marca (solo para mostrar)
+    marca_activa: bool = True
+
+    @property
+    def descripcion(self) -> str:
+        """"Blanco Nieve (BN-01)", o solo el que tenga."""
+        if self.nombre and self.codigo:
+            return f"{self.nombre} ({self.codigo})"
+        return self.nombre or self.codigo or ""
+
+
+@dataclass(frozen=True)
+class Placa:
+    id: int | None
+    id_color: int
+    espesor: Decimal          # cm (1,8 = 18 mm)
+    largo: Decimal            # cm, en el sentido de la veta
+    ancho: Decimal            # cm
+    es_activo: bool = True
+    color: ColorPlaca | None = None   # solo para mostrar
+    en_uso: bool = False      # la usa algún trabajo o retazo: no se borra ni se cambian sus medidas
+
+    @property
+    def espesor_mm(self) -> Decimal:
+        return (self.espesor * 10).normalize()
+
+
+@dataclass(frozen=True)
+class Liston:
+    id: int | None
+    nombre: str
+    ancho_pulgadas: Decimal
+    alto_pulgadas: Decimal
+    es_activo: bool = True
+    en_uso: bool = False
