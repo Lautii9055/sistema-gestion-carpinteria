@@ -15,16 +15,7 @@ if TYPE_CHECKING:
 
 
 def _dialogo(app: Aplicacion, titulo: str, contenido: ft.Control, acciones: list[ft.Control]) -> ft.AlertDialog:
-    p = app.paleta
-    return ft.AlertDialog(
-        modal=True,
-        bgcolor=p.superficie,
-        title=ft.Text(titulo, font_family=tema.SERIF, size=30, color=p.texto),
-        content=ft.Container(content=contenido, width=440),
-        actions=acciones,
-        actions_alignment=ft.MainAxisAlignment.END,
-        shape=ft.RoundedRectangleBorder(radius=16),
-    )
+    return componentes.dialogo(app.paleta, titulo, contenido, acciones)
 
 
 def _mostrar_provisoria(app: Aplicacion, nombre: str, provisoria: str, motivo: str) -> None:

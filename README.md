@@ -48,7 +48,8 @@ Diseñada a partir de una evaluación de riesgos proporcional al uso real (ver l
 - Contraseñas con **hash bcrypt**; bloqueo tras intentos fallidos; cierre de sesión por inactividad.
 - **Mínimo privilegio:** la aplicación se conecta con un usuario de base de datos que no puede modificar la estructura ni borrar la auditoría.
 - **Registro de auditoría** de los eventos relevantes, que solo admite agregar filas.
-- **Consultas parametrizadas** contra la inyección SQL.
+- **Consultas parametrizadas** contra la inyección SQL; en las búsquedas, además, se neutralizan los comodines de `LIKE` y se limita la cantidad y el largo de las palabras buscadas.
+- **Validación de datos de entrada** en la capa de negocio (formatos, largos máximos, duplicados), independiente de la pantalla.
 - **Secretos fuera del código:** credenciales guardadas en el Administrador de credenciales de Windows.
 - **Copias de seguridad cifradas** (AES) y verificadas con hash SHA-256.
 - [Plan de respuesta a incidentes](docs/plan_respuesta_incidentes.md) basado en NIST SP 800-61.

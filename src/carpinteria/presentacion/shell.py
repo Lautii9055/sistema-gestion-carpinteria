@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 SECCIONES_PRINCIPALES = [
     ("inicio", "Inicio", ft.Icons.HOME_OUTLINED, True),
     ("trabajos", "Trabajos", ft.Icons.TABLE_CHART_OUTLINED, False),
-    ("clientes", "Clientes", ft.Icons.PEOPLE_OUTLINE, False),
+    ("clientes", "Clientes", ft.Icons.PEOPLE_OUTLINE, True),
     ("materiales", "Materiales", ft.Icons.LAYERS_OUTLINED, False),
     ("retazos", "Retazos", ft.Icons.VIEW_QUILT_OUTLINED, False),
 ]
@@ -46,7 +46,7 @@ def _item_menu(app: Aplicacion, clave: str, texto: str, icono, disponible: bool,
         content=ft.Row(fila, spacing=12),
         height=44, padding=ft.Padding.symmetric(horizontal=12), border_radius=10,
         bgcolor=p.superficie_alta if activa else None,
-        on_click=(lambda _: app.ir_a(clave)) if disponible and not activa else None,
+        on_click=(lambda _: app.ir_a(clave)) if disponible else None,
         ink=disponible,
         tooltip=None if disponible else "Disponible en una próxima versión",
     )

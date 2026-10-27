@@ -109,3 +109,85 @@ class Reloj:
 
     def __call__(self):
         return self.ahora
+
+
+def _sin_tildes(texto: str) -> str:
+    """Imita la collation de la base (Modern_Spanish_CI_AI): sin mayúsculas ni tildes."""
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", texto or "")
+                   if unicodedata.category(c) != "Mn").casefold()
+
+
+class ObrasEnMemoria:
+    def __init__(self) -> None:
+        self.por_id = {}
+        self.trabajos = {}  # id_obra -> lista de TrabajoResumen
+
+    def listar_por_cliente(self, id_cliente):
+        return [o for o in self.por_id.values() if o.id_cliente == id_cliente]
+
+    def existe(self, id_cliente, direccion, localidad, excluir_id):
+        return any(o.id_cliente == id_cliente and _sin_tildes(o.direccion) == _sin_tildes(direccion)
+                   and _sin_tildes(o.localidad) == _sin_tildes(localidad) and o.id != excluir_id
+                   for o in self.por_id.values())
+
+    def crear(self, obra):
+        nuevo = max(self.por_id, default=0) + 1
+        self.por_id[nuevo] = replace(obra, id=nuevo)
+        return nuevo
+
+    def actualizar(self, obra):
+        self.por_id[obra.id] = obra
+
+    def trabajos_de_la_obra(self, id_obra):
+        return self.trabajos.get(id_obra, [])
+
+
+class ClientesEnMemoria:
+    def __init__(self, obras: ObrasEnMemoria) -> None:
+        self.por_id = {}
+        self.obras = obras
+        self.ultimo_limite = None
+
+    def _coincide(self, cliente, termino):
+        t = _sin_tildes(termino)
+        textos = [cliente.nombre, cliente.apellido, cliente.email or ""]
+        for o in self.obras.listar_por_cliente(cliente.id):
+            textos += [o.direccion, o.localidad, o.alias or ""]
+        digitos = "".join(c for c in termino if c.isdigit())
+        tel = "".join(c for c in cliente.telefono if c.isdigit())
+        return (any(t in _sin_tildes(x) for x in textos)
+                or (len(digitos) >= 3 and digitos in tel) or termino == str(cliente.id))
+
+    def buscar(self, terminos, incluir_inactivos, limite):
+        from carpinteria.negocio.entidades import ClienteResumen
+        self.ultimo_limite = limite
+        encontrados = [c for c in self.por_id.values()
+                       if (incluir_inactivos or c.es_activo) and all(self._coincide(c, t) for t in terminos)]
+        encontrados.sort(key=lambda c: (not c.es_activo, c.apellido, c.nombre))
+        resultado = []
+        for c in encontrados[:limite]:
+            obras = self.obras.listar_por_cliente(c.id)
+            resultado.append(ClienteResumen(c, len(obras),
+                                            f"{obras[0].direccion}, {obras[0].localidad}" if obras else None))
+        return resultado
+
+    def obtener(self, id_cliente):
+        return self.por_id.get(id_cliente)
+
+    def buscar_por_telefono(self, digitos):
+        return [c for c in self.por_id.values()
+                if "".join(ch for ch in c.telefono if ch.isdigit()) == digitos]
+
+    def crear(self, cliente, obra_inicial):
+        nuevo = max(self.por_id, default=0) + 1
+        self.por_id[nuevo] = replace(cliente, id=nuevo)
+        if obra_inicial is not None:
+            self.obras.crear(replace(obra_inicial, id_cliente=nuevo))
+        return nuevo
+
+    def actualizar(self, cliente):
+        self.por_id[cliente.id] = cliente
+
+    def cambiar_estado(self, id_cliente, activo):
+        self.por_id[id_cliente] = replace(self.por_id[id_cliente], es_activo=activo)

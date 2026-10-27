@@ -17,13 +17,15 @@ import flet as ft
 from carpinteria.datos.conexion import ErrorConexion
 from carpinteria.datos.repositorios import (RepositorioAuditoriaSql, RepositorioParametrosSql,
                                             RepositorioUsuariosSql)
+from carpinteria.datos.repositorios_clientes import RepositorioClientesSql, RepositorioObrasSql
 from carpinteria.negocio.auditoria import ServicioAuditoria
 from carpinteria.negocio.autenticacion import ErrorAutenticacion, ServicioAutenticacion
+from carpinteria.negocio.clientes import ServicioClientes
 from carpinteria.negocio.entidades import Sesion
 from carpinteria.negocio.usuarios import ServicioUsuarios
 from carpinteria.presentacion import (componentes, shell, tema, vista_auditoria,
-                                      vista_cambio_contrasena, vista_inicio, vista_ingreso,
-                                      vista_usuarios)
+                                      vista_cambio_contrasena, vista_clientes, vista_ficha_cliente,
+                                      vista_inicio, vista_ingreso, vista_usuarios)
 
 registro = logging.getLogger("carpinteria")
 
@@ -51,11 +53,14 @@ def configurar_registro() -> Path:
 
 class Aplicacion:
     def __init__(self, page: ft.Page, autenticacion: ServicioAutenticacion,
-                 usuarios: ServicioUsuarios, auditoria: ServicioAuditoria) -> None:
+                 usuarios: ServicioUsuarios, auditoria: ServicioAuditoria,
+                 clientes: ServicioClientes) -> None:
         self.page = page
         self.autenticacion = autenticacion
         self.usuarios = usuarios
         self.auditoria = auditoria
+        self.clientes = clientes
+        self.recuerdos: dict = {}  # estado de cada pantalla (ej.: la última búsqueda)
         self.modo_oscuro = True
         self.sesion: Sesion | None = None
         self._redibujar: Callable[[], None] = self.mostrar_ingreso
@@ -104,6 +109,7 @@ class Aplicacion:
     # ---------- pantallas ----------
     def mostrar_ingreso(self, aviso: str | None = None) -> None:
         self.sesion = None
+        self.recuerdos.clear()  # lo que buscó un usuario no lo ve el siguiente
         self._redibujar = self.mostrar_ingreso
         self._mostrar(vista_ingreso.construir(self, aviso))
 
@@ -112,17 +118,24 @@ class Aplicacion:
         self._redibujar = self.mostrar_cambio_obligatorio
         self._mostrar(vista_cambio_contrasena.construir(self, self.sesion))
 
-    def ir_a(self, seccion: str) -> None:
+    # Pantallas que no están en el menú y qué opción del menú queda marcada.
+    _SECCION_DEL_MENU = {"cliente": "clientes"}
+
+    def ir_a(self, seccion: str, **datos) -> None:
+        """Muestra una sección; datos lleva lo que necesita (ej.: id_cliente)."""
         self.page.on_resize = None
         self.registrar_actividad()
         vistas = {
             "inicio": lambda: vista_inicio.construir(self, self.sesion),
+            "clientes": lambda: vista_clientes.construir(self),
+            "cliente": lambda: vista_ficha_cliente.construir(self, datos["id_cliente"]),
             "usuarios": lambda: vista_usuarios.construir(self),
             "auditoria": lambda: vista_auditoria.construir(self),
             "contrasena": lambda: vista_cambio_contrasena.construir_mi_contrasena(self, self.sesion),
         }
-        self._redibujar = lambda: self.ir_a(seccion)
-        self._mostrar(shell.construir(self, seccion, vistas[seccion]()))
+        self._redibujar = lambda: self.ir_a(seccion, **datos)
+        menu = self._SECCION_DEL_MENU.get(seccion, seccion)
+        self._mostrar(shell.construir(self, menu, vistas[seccion]()))
 
     # ---------- acciones ----------
     def ejecutar(self, funcion: Callable, *argumentos):
@@ -230,6 +243,7 @@ def main(page: ft.Page) -> None:
                                             RepositorioParametrosSql()),
         usuarios=ServicioUsuarios(repositorio_usuarios, repositorio_auditoria),
         auditoria=ServicioAuditoria(repositorio_auditoria),
+        clientes=ServicioClientes(RepositorioClientesSql(), RepositorioObrasSql()),
     )
     page.run_task(app.vigilar_inactividad)
     app.mostrar_ingreso()

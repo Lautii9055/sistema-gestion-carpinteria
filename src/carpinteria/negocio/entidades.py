@@ -45,3 +45,62 @@ class TipoEvento:
     codigo: str
     descripcion: str
     es_critico: bool
+
+
+# ---------- Clientes y obras ----------
+@dataclass(frozen=True)
+class Cliente:
+    id: int | None
+    nombre: str
+    apellido: str
+    telefono: str
+    email: str | None = None
+    observaciones: str | None = None
+    es_activo: bool = True
+
+    @property
+    def nombre_completo(self) -> str:
+        return f"{self.nombre} {self.apellido}"
+
+
+@dataclass(frozen=True)
+class Obra:
+    id: int | None
+    id_cliente: int | None
+    direccion: str
+    localidad: str
+    alias: str | None = None
+    observaciones: str | None = None
+
+    @property
+    def titulo(self) -> str:
+        """Cómo se muestra la obra: el alias si tiene, si no la dirección."""
+        return self.alias or self.direccion
+
+
+@dataclass(frozen=True)
+class ClienteResumen:
+    """Fila del listado de clientes."""
+    cliente: Cliente
+    cantidad_obras: int
+    primera_direccion: str | None
+
+
+@dataclass(frozen=True)
+class TrabajoResumen:
+    id: int
+    descripcion: str
+    estado: str
+    fecha_alta: datetime
+
+
+@dataclass(frozen=True)
+class ObraConTrabajos:
+    obra: Obra
+    trabajos: list[TrabajoResumen]
+
+
+@dataclass(frozen=True)
+class FichaCliente:
+    cliente: Cliente
+    obras: list[ObraConTrabajos]

@@ -91,3 +91,57 @@ def aviso_flotante(page: ft.Page, texto: str, p: Paleta) -> None:
         show_close_icon=True, close_icon_color=p.texto_secundario,
         duration=6000,  # milisegundos
     ))
+
+
+def dialogo(p: Paleta, titulo: str, contenido: ft.Control, acciones: list[ft.Control],
+            ancho: int = 440) -> ft.AlertDialog:
+    return ft.AlertDialog(
+        modal=True,
+        bgcolor=p.superficie,
+        title=ft.Text(titulo, font_family=tema.SERIF, size=30, color=p.texto),
+        content=ft.Container(content=contenido, width=ancho),
+        actions=acciones,
+        actions_alignment=ft.MainAxisAlignment.END,
+        shape=ft.RoundedRectangleBorder(radius=16),
+    )
+
+
+def boton_cancelar(p: Paleta, al_tocar) -> ft.TextButton:
+    return ft.TextButton(content=ft.Text("Cancelar", color=p.texto_secundario), on_click=al_tocar)
+
+
+def boton_con_icono(texto: str, icono, p: Paleta, al_tocar, principal: bool = True,
+                    **opciones) -> ft.Control:
+    """Botón con ícono a la izquierda (principal dorado o secundario con borde)."""
+    color = p.sobre_acento if principal else p.texto
+    contenido = ft.Row([ft.Icon(icono, color=color, size=20),
+                        ft.Text(texto, font_family=SANS_SEMI if principal else tema.SANS_MEDIA,
+                                size=15, color=color)], spacing=8, tight=True)
+    forma = ft.RoundedRectangleBorder(radius=tema.RADIO)
+    if principal:
+        return ft.FilledButton(content=contenido, on_click=al_tocar, height=48,
+                               style=ft.ButtonStyle(bgcolor=p.acento, shape=forma), **opciones)
+    return ft.OutlinedButton(content=contenido, on_click=al_tocar, height=44,
+                             style=ft.ButtonStyle(side=ft.BorderSide(1, p.borde_fuerte), shape=forma),
+                             **opciones)
+
+
+def estado_vacio(icono, titulo: str, texto: str, p: Paleta,
+                 accion: ft.Control | None = None) -> ft.Container:
+    """Mensaje amable cuando una lista no tiene nada que mostrar."""
+    return tarjeta(
+        ft.Column([
+            ft.Icon(icono, size=40, color=p.acento_texto),
+            ft.Text(titulo, font_family=tema.SERIF, size=26, color=p.texto),
+            ft.Text(texto, size=15, color=p.texto_tenue, text_align=ft.TextAlign.CENTER),
+            *([accion] if accion else []),
+        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10, tight=True),
+        p, padding=40, alignment=ft.Alignment.CENTER,
+    )
+
+
+def dato(icono, texto: str | None, p: Paleta, vacio: str = "—") -> ft.Row:
+    """Ícono + valor (teléfono, email, dirección...)."""
+    return ft.Row([ft.Icon(icono, size=18, color=p.texto_tenue),
+                   ft.Text(texto or vacio, size=15, selectable=bool(texto),
+                           color=p.texto if texto else p.texto_tenue)], spacing=10)
