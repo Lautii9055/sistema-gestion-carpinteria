@@ -167,7 +167,8 @@ CREATE TABLE dbo.Trabajo (
     descripcion_tra        NVARCHAR(200)  NOT NULL,
     monto_total_tra        DECIMAL(12,2)  NULL,
     monto_sena_tra         DECIMAL(12,2)  NULL,       -- el saldo NO se guarda: total - seña
-    fecha_alta_tra         DATETIME2(0)   NOT NULL CONSTRAINT DF_Trabajo_fecha_alta DEFAULT (SYSDATETIME()),
+    fecha_alta_tra         DATETIME2(0)   NOT NULL CONSTRAINT DF_Trabajo_fecha_alta DEFAULT (SYSDATETIME()),  -- cuándo se cargó (no se edita)
+    fecha_presupuesto_tra  DATE           NOT NULL CONSTRAINT DF_Trabajo_fecha_presupuesto DEFAULT (CAST(SYSDATETIME() AS DATE)),  -- se puede cargar con fecha pasada
     fecha_cobro_sena_tra   DATE           NULL,
     fecha_comienzo_tra     DATE           NULL,
     fecha_finalizacion_tra DATE           NULL,
@@ -182,7 +183,12 @@ CREATE TABLE dbo.Trabajo (
     -- Con NULL la comparación da "desconocido" y el CHECK se cumple: solo se
     -- valida cuando las dos fechas están cargadas.
     CONSTRAINT CK_Trabajo_fecha_finalizacion CHECK (fecha_finalizacion_tra >= fecha_comienzo_tra),
-    CONSTRAINT CK_Trabajo_fecha_entrega      CHECK (fecha_entrega_tra >= fecha_finalizacion_tra)
+    CONSTRAINT CK_Trabajo_fecha_entrega      CHECK (fecha_entrega_tra >= fecha_finalizacion_tra),
+    -- Nada ocurre antes del presupuesto (con NULL, esa comparación no hace fallar el CHECK).
+    CONSTRAINT CK_Trabajo_fechas_desde_presupuesto CHECK (
+        fecha_cobro_sena_tra   >= fecha_presupuesto_tra AND fecha_comienzo_tra    >= fecha_presupuesto_tra AND
+        fecha_finalizacion_tra >= fecha_presupuesto_tra AND fecha_entrega_tra     >= fecha_presupuesto_tra AND
+        fecha_cobro_saldo_tra  >= fecha_presupuesto_tra)
 );
 
 CREATE TABLE dbo.Mueble (

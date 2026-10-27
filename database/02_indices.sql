@@ -48,6 +48,7 @@ CREATE INDEX IX_Cliente_telefono        ON dbo.Cliente (telefono_cli);
 CREATE INDEX IX_Obra_direccion          ON dbo.Obra (direccion_obr, localidad_obr);
 CREATE INDEX IX_Obra_alias              ON dbo.Obra (nombre_obr) WHERE nombre_obr IS NOT NULL;
 CREATE INDEX IX_Trabajo_fecha_alta      ON dbo.Trabajo (fecha_alta_tra);
+CREATE INDEX IX_Trabajo_fecha_presupuesto ON dbo.Trabajo (fecha_presupuesto_tra);
 CREATE INDEX IX_Color_Placa_nombre      ON dbo.Color_Placa (nombre_cpl);
 CREATE INDEX IX_Color_Laca_nombre       ON dbo.Color_Laca (nombre_cla);
 

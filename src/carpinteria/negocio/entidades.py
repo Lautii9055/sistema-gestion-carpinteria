@@ -1,6 +1,7 @@
 """Entidades del negocio: datos puros, sin lógica de base de datos ni de interfaz."""
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 
 @dataclass(frozen=True)
@@ -91,7 +92,7 @@ class TrabajoResumen:
     id: int
     descripcion: str
     estado: str
-    fecha_alta: datetime
+    fecha_presupuesto: date
 
 
 @dataclass(frozen=True)
@@ -104,3 +105,60 @@ class ObraConTrabajos:
 class FichaCliente:
     cliente: Cliente
     obras: list[ObraConTrabajos]
+
+
+# ---------- trabajos (RF-12 y RF-25 a RF-28) ----------
+@dataclass(frozen=True)
+class EstadoTrabajo:
+    id: int
+    nombre: str
+    orden: int
+
+
+@dataclass(frozen=True)
+class Trabajo:
+    id: int | None
+    id_obra: int
+    id_estado: int
+    descripcion: str
+    monto_total: Decimal | None = None
+    monto_sena: Decimal | None = None
+    fecha_alta: datetime | None = None
+    fecha_cobro_sena: date | None = None
+    fecha_comienzo: date | None = None
+    fecha_finalizacion: date | None = None
+    fecha_entrega: date | None = None
+    fecha_cobro_saldo: date | None = None
+    observaciones: str | None = None
+    fecha_presupuesto: date | None = None   # editable; fecha_alta es cuándo se cargó
+
+    @property
+    def saldo(self) -> Decimal | None:
+        """El saldo no se guarda: se calcula como total − seña (RF-26)."""
+        if self.monto_total is None:
+            return None
+        return self.monto_total - (self.monto_sena or Decimal(0))
+
+    @property
+    def cobrado(self) -> Decimal:
+        total = Decimal(0)
+        if self.fecha_cobro_sena and self.monto_sena:
+            total += self.monto_sena
+        if self.fecha_cobro_saldo and self.saldo:
+            total += self.saldo
+        return total
+
+    @property
+    def pendiente_de_cobro(self) -> Decimal:
+        if self.monto_total is None:
+            return Decimal(0)
+        return self.monto_total - self.cobrado
+
+
+@dataclass(frozen=True)
+class DetalleTrabajo:
+    """Un trabajo con su estado, su obra y su cliente (para listados y detalle)."""
+    trabajo: Trabajo
+    estado: EstadoTrabajo
+    obra: Obra
+    cliente: Cliente

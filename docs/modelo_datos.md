@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 1.3 (implementado en SQL Server; agrega seguridad y auditoría)
+**Versión del documento:** 1.4 (agrega la fecha de presupuesto del trabajo; migración `06`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -160,7 +160,8 @@ Una casa o inmueble donde se realizan trabajos. Permite consultar todo lo hecho 
 | descripcion_tra | VARCHAR(200) | NN (ej.: "Cocina completa") |
 | monto_total_tra | DECIMAL(12,2) | ≥ 0 |
 | monto_sena_tra | DECIMAL(12,2) | ≥ 0 y ≤ monto_total_tra |
-| fecha_alta_tra | DATETIME | NN, default fecha actual |
+| fecha_alta_tra | DATETIME | NN, default fecha actual. Cuándo se cargó en el sistema: no se edita |
+| fecha_presupuesto_tra | DATE | NN, default fecha actual. Editable hacia el pasado (trabajo anotado tarde) |
 | fecha_cobro_sena_tra | DATE | |
 | fecha_comienzo_tra | DATE | |
 | fecha_finalizacion_tra | DATE | ≥ fecha_comienzo_tra |
@@ -168,6 +169,7 @@ Una casa o inmueble donde se realizan trabajos. Permite consultar todo lo hecho 
 | fecha_cobro_saldo_tra | DATE | |
 | observaciones_tra | VARCHAR(500) | |
 
+> CHECK: ninguna de las cinco fechas es anterior a `fecha_presupuesto_tra` (`CK_Trabajo_fechas_desde_presupuesto`).
 > El saldo no se almacena: se calcula como `monto_total_tra − monto_sena_tra`.
 > El cliente del trabajo se obtiene a través de la obra (`Trabajo → Obra → Cliente`). No se guarda `id_cliente` en el trabajo para evitar una dependencia transitiva (3FN).
 > Una obra puede tener varios trabajos: todo junto en un solo trabajo, o por etapas (cada una con su seña, saldo, estado y fechas).
@@ -587,7 +589,7 @@ Cada pieza usa dos de las tres referencias: la que no usa queda en nulo.
 Además de las PK, FK y UQ:
 - `Cliente`: nombre_cli, apellido_cli, telefono_cli.
 - `Obra`: direccion_obr, localidad_obr, nombre_obr.
-- `Trabajo`: id_estado_trabajo, fecha_alta_tra.
+- `Trabajo`: id_estado_trabajo, fecha_alta_tra, fecha_presupuesto_tra.
 - `Color_Placa` / `Color_Laca`: nombre y código.
 - `Retazo`: (id_placa, fecha_baja_ret), para buscar retazos disponibles.
 - `Auditoria`: fecha_hora_aud descendente (lo último que pasó), (id_tipo_evento, fecha) y id_usuario.

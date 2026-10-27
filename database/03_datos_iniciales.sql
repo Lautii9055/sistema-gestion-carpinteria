@@ -47,6 +47,7 @@ INSERT INTO dbo.Tipo_Evento (codigo_tev, descripcion_tev, es_critico_tev) VALUES
     ('ELIMINACION_TRABAJO',   N'Eliminación de un trabajo completo',        1),
     ('CAMBIO_MONTO',          N'Cambio del monto total o de la seña',       1),
     ('CAMBIO_ESTADO_TRABAJO', N'Cambio de estado de un trabajo',            0),
+    ('CAMBIO_FECHA_PRESUPUESTO', N'Fecha de presupuesto cargada o cambiada a mano', 0),
     ('CAMBIO_PARAMETRO',      N'Cambio de un parámetro del sistema',        1),
     ('BACKUP_OK',             N'Copia de seguridad realizada',              0),
     ('BACKUP_ERROR',          N'Falló la copia de seguridad',               1);

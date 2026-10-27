@@ -18,14 +18,17 @@ from carpinteria.datos.conexion import ErrorConexion
 from carpinteria.datos.repositorios import (RepositorioAuditoriaSql, RepositorioParametrosSql,
                                             RepositorioUsuariosSql)
 from carpinteria.datos.repositorios_clientes import RepositorioClientesSql, RepositorioObrasSql
+from carpinteria.datos.repositorios_trabajos import RepositorioTrabajosSql
 from carpinteria.negocio.auditoria import ServicioAuditoria
 from carpinteria.negocio.autenticacion import ErrorAutenticacion, ServicioAutenticacion
 from carpinteria.negocio.clientes import ServicioClientes
+from carpinteria.negocio.trabajos import ServicioTrabajos
 from carpinteria.negocio.entidades import Sesion
 from carpinteria.negocio.usuarios import ServicioUsuarios
 from carpinteria.presentacion import (componentes, shell, tema, vista_auditoria,
                                       vista_cambio_contrasena, vista_clientes, vista_ficha_cliente,
-                                      vista_inicio, vista_ingreso, vista_usuarios)
+                                      vista_inicio, vista_ingreso, vista_trabajo, vista_trabajos,
+                                      vista_usuarios)
 
 registro = logging.getLogger("carpinteria")
 
@@ -54,12 +57,13 @@ def configurar_registro() -> Path:
 class Aplicacion:
     def __init__(self, page: ft.Page, autenticacion: ServicioAutenticacion,
                  usuarios: ServicioUsuarios, auditoria: ServicioAuditoria,
-                 clientes: ServicioClientes) -> None:
+                 clientes: ServicioClientes, trabajos: ServicioTrabajos) -> None:
         self.page = page
         self.autenticacion = autenticacion
         self.usuarios = usuarios
         self.auditoria = auditoria
         self.clientes = clientes
+        self.trabajos = trabajos
         self.recuerdos: dict = {}  # estado de cada pantalla (ej.: la última búsqueda)
         self.modo_oscuro = True
         self.sesion: Sesion | None = None
@@ -119,7 +123,7 @@ class Aplicacion:
         self._mostrar(vista_cambio_contrasena.construir(self, self.sesion))
 
     # Pantallas que no están en el menú y qué opción del menú queda marcada.
-    _SECCION_DEL_MENU = {"cliente": "clientes"}
+    _SECCION_DEL_MENU = {"cliente": "clientes", "trabajo": "trabajos"}
 
     def ir_a(self, seccion: str, **datos) -> None:
         """Muestra una sección; datos lleva lo que necesita (ej.: id_cliente)."""
@@ -129,6 +133,8 @@ class Aplicacion:
             "inicio": lambda: vista_inicio.construir(self, self.sesion),
             "clientes": lambda: vista_clientes.construir(self),
             "cliente": lambda: vista_ficha_cliente.construir(self, datos["id_cliente"]),
+            "trabajos": lambda: vista_trabajos.construir(self),
+            "trabajo": lambda: vista_trabajo.construir(self, datos["id_trabajo"]),
             "usuarios": lambda: vista_usuarios.construir(self),
             "auditoria": lambda: vista_auditoria.construir(self),
             "contrasena": lambda: vista_cambio_contrasena.construir_mi_contrasena(self, self.sesion),
@@ -237,13 +243,18 @@ def main(page: ft.Page) -> None:
 
     repositorio_usuarios = RepositorioUsuariosSql()
     repositorio_auditoria = RepositorioAuditoriaSql()
+    repositorio_parametros = RepositorioParametrosSql()
+    repositorio_clientes = RepositorioClientesSql()
+    repositorio_obras = RepositorioObrasSql()
     app = Aplicacion(
         page,
         autenticacion=ServicioAutenticacion(repositorio_usuarios, repositorio_auditoria,
-                                            RepositorioParametrosSql()),
+                                            repositorio_parametros),
         usuarios=ServicioUsuarios(repositorio_usuarios, repositorio_auditoria),
         auditoria=ServicioAuditoria(repositorio_auditoria),
-        clientes=ServicioClientes(RepositorioClientesSql(), RepositorioObrasSql()),
+        clientes=ServicioClientes(repositorio_clientes, repositorio_obras),
+        trabajos=ServicioTrabajos(RepositorioTrabajosSql(), repositorio_clientes, repositorio_obras,
+                                  repositorio_auditoria, repositorio_parametros),
     )
     page.run_task(app.vigilar_inactividad)
     app.mostrar_ingreso()

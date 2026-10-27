@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 2.2 (agrega la sección 6.1, Seguridad)
+**Versión del documento:** 2.4 (flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -144,14 +144,16 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
 
 ### M7 — Estados y pagos
 - **RF-25** Estados de un trabajo: Presupuestado → Confirmado → En producción → Terminado → Instalado → Cobrado. También Cancelado.
+- **RF-25.1** Los estados avanzan de a uno y en orden. Para corregir un paso marcado por error se vuelve un solo paso atrás, y se borra la fecha de fabricación de ese paso (comienzo, finalización o entrega). No se puede volver a Presupuestado con la seña cobrada. Se puede cancelar en cualquier estado salvo Cobrado; al retomar un trabajo cancelado, vuelve al último estado que indican sus fechas.
+- **RF-25.2** Cobrar no es un paso de la fabricación: la seña y el saldo se registran cuando ocurren. Registrar el cobro de la seña de un trabajo presupuestado lo confirma. El saldo se puede cobrar por adelantado desde Confirmado (ej.: el cliente paga el total al confirmar); el trabajo sigue su curso y, al pasar a Cobrado, conserva esa fecha. Para pasar a Cobrado, la seña y el saldo tienen que estar cobrados.
 - **RF-26** Cada trabajo registra su monto total (cargado manualmente en la V1) y el monto de la seña. El saldo no se almacena: se calcula como total − seña.
-- **RF-26.1** Cada trabajo registra cinco fechas como atributos independientes:
+- **RF-26.1** Cada trabajo registra su fecha de presupuesto (por defecto, el día en que se carga; se puede indicar una fecha pasada si el trabajo se anotó tarde, nunca futura, y su cambio queda en la auditoría) y, además, cinco fechas como atributos independientes:
   - Fecha de cobro de la seña
   - Fecha de comienzo
   - Fecha de finalización (fin de fabricación)
   - Fecha de entrega (instalación)
   - Fecha de cobro del saldo
-- **RF-26.2** El sistema valida que las fechas sean coherentes (ej.: la finalización no puede ser anterior al comienzo).
+- **RF-26.2** El sistema valida que las fechas sean coherentes: ninguna es anterior a la fecha de presupuesto; cobro de la seña ≤ comienzo ≤ finalización ≤ entrega; cobro de la seña ≤ cobro del saldo; los cobros no pueden ser futuros, y tampoco la fecha de un estado ya alcanzado. Las fechas de estados todavía no alcanzados (ej.: entrega pactada) pueden ser futuras y se muestran como previstas.
 - **RF-26.3** Al cambiar el estado del trabajo, el sistema sugiere completar la fecha correspondiente: Confirmado → cobro de la seña; En producción → comienzo; Terminado → finalización; Instalado → entrega; Cobrado → cobro del saldo.
 - **RF-27** El sistema sugiere la seña como un porcentaje del total (por defecto 60%) y calcula el saldo como total − seña.
 - **RF-28** Listado de trabajos filtrable por estado y vista de trabajos con saldo pendiente.

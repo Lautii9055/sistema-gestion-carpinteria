@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import date, datetime
 
 import flet as ft
 
@@ -145,3 +145,47 @@ def dato(icono, texto: str | None, p: Paleta, vacio: str = "—") -> ft.Row:
     return ft.Row([ft.Icon(icono, size=18, color=p.texto_tenue),
                    ft.Text(texto or vacio, size=15, selectable=bool(texto),
                            color=p.texto if texto else p.texto_tenue)], spacing=10)
+
+
+def desplegable(etiqueta: str, opciones: list[tuple[str, str]], valor: str, p: Paleta,
+                ancho: int | None = None) -> ft.Dropdown:
+    return ft.Dropdown(
+        label=etiqueta, value=valor, width=ancho,
+        options=[ft.DropdownOption(key=k, text=t) for k, t in opciones],
+        label_style=ft.TextStyle(color=p.texto_secundario),
+        text_style=ft.TextStyle(color=p.texto, size=14),
+        border_color=p.borde_fuerte, focused_border_color=p.acento, border_radius=tema.RADIO,
+        filled=True, fill_color=p.superficie, bgcolor=p.superficie,
+    )
+
+
+def colores_estado_trabajo(nombre: str, p: Paleta) -> tuple[str, str]:
+    """(texto, fondo) de la etiqueta de cada estado del trabajo."""
+    if nombre == "Presupuestado":
+        return p.texto_secundario, p.fondo
+    if nombre == "Cobrado":
+        return p.exito, p.superficie_alta
+    if nombre == "Cancelado":
+        return p.error_texto, p.error_fondo
+    return p.acento_texto, p.superficie_alta
+
+
+def etiqueta_estado_trabajo(nombre: str, p: Paleta) -> ft.Container:
+    texto, fondo = colores_estado_trabajo(nombre, p)
+    return etiqueta_estado(nombre, texto, fondo)
+
+
+def campo_fecha(etiqueta: str, valor: str, p: Paleta, **opciones) -> ft.TextField:
+    """Fecha escrita como dd/mm/aaaa, con un botón "Hoy" al costado."""
+    campo = tema.campo(etiqueta, p, value=valor, hint_text="dd/mm/aaaa",
+                       input_filter=ft.InputFilter(regex_string=r"^[0-9/\-.]{0,10}$", allow=True,
+                                                   replacement_string=""),
+                       **opciones)
+
+    def hoy(_):
+        campo.value = f"{date.today():%d/%m/%Y}"
+        campo.update()
+
+    campo.suffix = ft.TextButton(content=ft.Text("Hoy", size=13, color=p.acento_texto), on_click=hoy,
+                                 tooltip="Completar con la fecha de hoy")
+    return campo

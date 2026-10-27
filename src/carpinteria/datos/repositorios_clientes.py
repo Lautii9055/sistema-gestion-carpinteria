@@ -125,6 +125,14 @@ def _a_obra(f) -> Obra:
 
 
 class RepositorioObrasSql:
+    def obtener(self, id_obra: int) -> Obra | None:
+        with conexion_abierta() as cn:
+            fila = cn.cursor().execute(
+                "SELECT id_obra, id_cliente, nombre_obr, direccion_obr, localidad_obr, observaciones_obr "
+                "FROM dbo.Obra WHERE id_obra = ?", id_obra,
+            ).fetchone()
+        return _a_obra(fila) if fila else None
+
     def listar_por_cliente(self, id_cliente: int) -> list[Obra]:
         with conexion_abierta() as cn:
             filas = cn.cursor().execute(
@@ -160,10 +168,10 @@ class RepositorioObrasSql:
     def trabajos_de_la_obra(self, id_obra: int) -> list[TrabajoResumen]:
         with conexion_abierta() as cn:
             filas = cn.cursor().execute(
-                """SELECT t.id_trabajo, t.descripcion_tra, e.nombre_etr, t.fecha_alta_tra
+                """SELECT t.id_trabajo, t.descripcion_tra, e.nombre_etr, t.fecha_presupuesto_tra
                    FROM dbo.Trabajo t
                    JOIN dbo.Estado_Trabajo e ON e.id_estado_trabajo = t.id_estado_trabajo
                    WHERE t.id_obra = ?
-                   ORDER BY t.fecha_alta_tra DESC""", id_obra,
+                   ORDER BY t.fecha_presupuesto_tra DESC, t.id_trabajo DESC""", id_obra,
             ).fetchall()
         return [TrabajoResumen(f[0], f[1], f[2], f[3]) for f in filas]

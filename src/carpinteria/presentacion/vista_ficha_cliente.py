@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from carpinteria.negocio.entidades import Cliente, Obra, ObraConTrabajos
-from carpinteria.presentacion import componentes, tema, vista_clientes
-from carpinteria.presentacion.componentes import fecha_larga
+from carpinteria.presentacion import componentes, tema, vista_clientes, vista_trabajos
 from carpinteria.presentacion.tema import SANS_MEDIA
 
 if TYPE_CHECKING:
@@ -82,14 +81,19 @@ def _tarjeta_obra(app: Aplicacion, cliente: Cliente, item: ObraConTrabajos) -> f
 
     if item.trabajos:
         historial: list[ft.Control] = [
-            ft.Row([
-                ft.Text(f"#{t.id}", size=13, color=p.texto_tenue, width=48),
-                ft.Text(t.descripcion, size=15, color=p.texto, expand=True, max_lines=1,
-                        overflow=ft.TextOverflow.ELLIPSIS),
-                componentes.etiqueta_estado(t.estado, p.acento_texto, p.superficie_alta),
-                ft.Text(f"{t.fecha_alta:%d/%m/%Y}", size=13, color=p.texto_tenue, width=84,
-                        text_align=ft.TextAlign.RIGHT),
-            ], spacing=12)
+            ft.Container(
+                content=ft.Row([
+                    ft.Text(f"#{t.id}", size=13, color=p.texto_tenue, width=48),
+                    ft.Text(t.descripcion, size=15, color=p.texto, expand=True, max_lines=1,
+                            overflow=ft.TextOverflow.ELLIPSIS),
+                    componentes.etiqueta_estado_trabajo(t.estado, p),
+                    ft.Text(f"{t.fecha_presupuesto:%d/%m/%Y}", size=13, color=p.texto_tenue, width=84,
+                            text_align=ft.TextAlign.RIGHT),
+                    ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=p.texto_tenue),
+                ], spacing=12),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=6), border_radius=8, ink=True,
+                on_click=lambda _, id_=t.id: app.ir_a("trabajo", id_trabajo=id_), tooltip="Ver el trabajo",
+            )
             for t in item.trabajos
         ]
     else:
@@ -114,10 +118,14 @@ def _tarjeta_obra(app: Aplicacion, cliente: Cliente, item: ObraConTrabajos) -> f
                 tema.etiqueta_superior("Trabajos", p),
                 ft.Container(expand=True),
                 ft.TextButton(
-                    content=ft.Row([ft.Icon(ft.Icons.ADD, size=18, color=p.texto_tenue),
-                                    ft.Text("Nuevo trabajo", color=p.texto_tenue, size=14)],
+                    content=ft.Row([ft.Icon(ft.Icons.ADD, size=18,
+                                            color=p.acento_texto if cliente.es_activo else p.texto_tenue),
+                                    ft.Text("Nuevo trabajo", size=14,
+                                            color=p.acento_texto if cliente.es_activo else p.texto_tenue)],
                                    spacing=4, tight=True),
-                    disabled=True, tooltip="Disponible cuando esté el módulo de trabajos"),
+                    on_click=lambda _: vista_trabajos.abrir_nuevo(app, cliente, obra),
+                    disabled=not cliente.es_activo,
+                    tooltip=None if cliente.es_activo else "Reactivá al cliente para cargarle trabajos"),
             ]),
             *historial,
         ], spacing=12),

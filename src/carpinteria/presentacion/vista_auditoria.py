@@ -16,15 +16,7 @@ if TYPE_CHECKING:
 TODOS = "todos"
 
 
-def _desplegable(etiqueta: str, opciones: list[tuple[str, str]], valor: str, p, ancho: int) -> ft.Dropdown:
-    return ft.Dropdown(
-        label=etiqueta, value=valor, width=ancho,
-        options=[ft.DropdownOption(key=k, text=t) for k, t in opciones],
-        label_style=ft.TextStyle(color=p.texto_secundario),
-        text_style=ft.TextStyle(color=p.texto, size=14),
-        border_color=p.borde_fuerte, focused_border_color=p.acento, border_radius=tema.RADIO,
-        filled=True, fill_color=p.superficie, bgcolor=p.superficie,
-    )
+_desplegable = componentes.desplegable
 
 
 def _fila(evento: EventoAuditoria, p) -> ft.Container:

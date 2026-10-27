@@ -97,6 +97,7 @@ class AuditoriaEnMemoria:
 
 class ParametrosEnMemoria:
     valores = {"max_intentos_login": Decimal(5), "minutos_bloqueo": Decimal(15),
+               "porcentaje_sena": Decimal("60.0"),
                "largo_minimo_contrasena": Decimal(10), "minutos_inactividad": Decimal(15)}
 
     def obtener(self, clave):
@@ -125,6 +126,9 @@ class ObrasEnMemoria:
 
     def listar_por_cliente(self, id_cliente):
         return [o for o in self.por_id.values() if o.id_cliente == id_cliente]
+
+    def obtener(self, id_obra):
+        return self.por_id.get(id_obra)
 
     def existe(self, id_cliente, direccion, localidad, excluir_id):
         return any(o.id_cliente == id_cliente and _sin_tildes(o.direccion) == _sin_tildes(direccion)
@@ -191,3 +195,63 @@ class ClientesEnMemoria:
 
     def cambiar_estado(self, id_cliente, activo):
         self.por_id[id_cliente] = replace(self.por_id[id_cliente], es_activo=activo)
+
+
+ESTADOS = ["Presupuestado", "Confirmado", "En producción", "Terminado", "Instalado", "Cobrado",
+           "Cancelado"]
+
+
+class TrabajosEnMemoria:
+    def __init__(self, clientes: "ClientesEnMemoria", obras: ObrasEnMemoria, reloj=lambda: AHORA) -> None:
+        from carpinteria.negocio.entidades import EstadoTrabajo
+        self.por_id = {}
+        self.clientes = clientes
+        self.obras = obras
+        self._reloj = reloj
+        self._estados = [EstadoTrabajo(i + 1, n, i + 1) for i, n in enumerate(ESTADOS)]
+        self.ultimos_filtros = None
+
+    def estados(self):
+        return list(self._estados)
+
+    def _detalle(self, t):
+        from carpinteria.negocio.entidades import DetalleTrabajo
+        obra = self.obras.por_id[t.id_obra]
+        return DetalleTrabajo(t, next(e for e in self._estados if e.id == t.id_estado), obra,
+                              self.clientes.por_id[obra.id_cliente])
+
+    def buscar(self, terminos, id_estado, solo_por_cobrar, desde, limite):
+        self.ultimos_filtros = (terminos, id_estado, solo_por_cobrar, desde, limite)
+        resultado = []
+        for t in sorted(self.por_id.values(), key=lambda t: (t.fecha_presupuesto, t.id), reverse=True):
+            d = self._detalle(t)
+            textos = [t.descripcion, d.cliente.nombre, d.cliente.apellido, d.obra.direccion,
+                      d.obra.localidad, d.obra.alias or "", d.estado.nombre]
+            if id_estado is not None and t.id_estado != id_estado:
+                continue
+            if desde is not None and t.fecha_presupuesto < desde:
+                continue
+            if solo_por_cobrar and (d.estado.nombre in ("Presupuestado", "Cancelado")
+                                    or t.pendiente_de_cobro <= 0):
+                continue
+            if all(any(_sin_tildes(x) in _sin_tildes(c) for c in textos) or x == str(t.id)
+                   for x in terminos):
+                resultado.append(d)
+        return resultado[:limite]
+
+    def obtener(self, id_trabajo):
+        t = self.por_id.get(id_trabajo)
+        return self._detalle(t) if t else None
+
+    def crear(self, trabajo):
+        nuevo = max(self.por_id, default=0) + 1
+        ahora = self._reloj()
+        self.por_id[nuevo] = replace(trabajo, id=nuevo, fecha_alta=ahora,
+                                     fecha_presupuesto=trabajo.fecha_presupuesto or ahora.date())
+        return nuevo
+
+    def actualizar(self, trabajo):
+        self.por_id[trabajo.id] = trabajo
+
+    def eliminar(self, id_trabajo):
+        del self.por_id[id_trabajo]

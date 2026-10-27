@@ -32,6 +32,13 @@ Abrir cada script en SSMS (**File → Open → File…**) y ejecutarlo con **F5*
 | 5 | `04_procedimientos.sql` | `sp_alta_placa`, `sp_alta_liston`, `sp_eliminar_trabajo`, `sp_registrar_evento` |
 | 6 | `05_seguridad.sql` | Login `app_carpinteria` con mínimo privilegio, rol `rol_app`, deshabilita `sa` (ver sección 4) |
 
+### Migraciones (bases ya creadas)
+Si la base ya estaba creada, ejecutar además, en orden, las migraciones que falten (son re-ejecutables y no borran datos):
+
+| Script | Qué hace |
+|--------|----------|
+| `06_migracion_fecha_presupuesto.sql` | Agrega la fecha de presupuesto del trabajo (editable), un CHECK para que ninguna fecha sea anterior a ella, su índice y el evento de auditoría `CAMBIO_FECHA_PRESUPUESTO` |
+
 `01_tablas.sql` es re-ejecutable: borra las tablas y las vuelve a crear (se pierden los datos). Después hay que volver a correr 02, 03, 04 y 05.
 
 ## 3. Verificación
