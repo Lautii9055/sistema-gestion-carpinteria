@@ -18,12 +18,14 @@ from carpinteria.datos.conexion import ErrorConexion
 from carpinteria.datos.repositorios import (RepositorioAuditoriaSql, RepositorioParametrosSql,
                                             RepositorioUsuariosSql)
 from carpinteria.datos.repositorios_clientes import RepositorioClientesSql, RepositorioObrasSql
+from carpinteria.datos.repositorios_catalogo import RepositorioCatalogoSql
 from carpinteria.datos.repositorios_materiales import RepositorioMaterialesSql
 from carpinteria.datos.repositorios_trabajos import RepositorioTrabajosSql
 from carpinteria.negocio.auditoria import ServicioAuditoria
 from carpinteria.negocio.autenticacion import ErrorAutenticacion, ServicioAutenticacion
 from carpinteria.negocio.clientes import ServicioClientes
 from carpinteria.negocio.inicio import ServicioInicio
+from carpinteria.negocio.catalogo import ServicioCatalogo
 from carpinteria.negocio.materiales import ServicioMateriales
 from carpinteria.negocio.trabajos import ServicioTrabajos
 from carpinteria.negocio.entidades import Sesion
@@ -62,7 +64,7 @@ class Aplicacion:
     def __init__(self, page: ft.Page, autenticacion: ServicioAutenticacion,
                  usuarios: ServicioUsuarios, auditoria: ServicioAuditoria,
                  clientes: ServicioClientes, trabajos: ServicioTrabajos, inicio: ServicioInicio,
-                 materiales: ServicioMateriales) -> None:
+                 materiales: ServicioMateriales, catalogo: ServicioCatalogo) -> None:
         self.page = page
         self.autenticacion = autenticacion
         self.usuarios = usuarios
@@ -71,6 +73,7 @@ class Aplicacion:
         self.trabajos = trabajos
         self.inicio = inicio
         self.materiales = materiales
+        self.catalogo = catalogo
         self.recuerdos: dict = {}  # estado de cada pantalla (ej.: la última búsqueda)
         self.modo_oscuro = True
         self.sesion: Sesion | None = None
@@ -266,6 +269,7 @@ def main(page: ft.Page) -> None:
                                   repositorio_auditoria, repositorio_parametros),
         inicio=ServicioInicio(repositorio_trabajos),
         materiales=ServicioMateriales(RepositorioMaterialesSql()),
+        catalogo=ServicioCatalogo(RepositorioCatalogoSql()),
     )
     page.run_task(app.vigilar_inactividad)
     app.mostrar_ingreso()

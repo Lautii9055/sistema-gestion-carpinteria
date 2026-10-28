@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 2.7 (catálogo: RF-11.1 precisado; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
+**Versión del documento:** 2.8 (catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -101,6 +101,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
 - **RF-11** Las medidas de la placa entera dependen de la marca y se registran por material. Un mismo color y espesor puede venir en más de un tamaño de placa.
 - **RF-11.0** ABM de estilos de frente: nombre, luces superior, inferior y entre frentes, y descripción (ej.: indicaciones de fabricación).
 - **RF-11.1** Los elementos del catálogo (marcas, colores, placas, listones, lacas, terminaciones, guías, estilos de frente) no se borran si están en uso: se dan de baja lógica. Un elemento dado de baja no se ofrece para cargas nuevas, pero los trabajos anteriores lo siguen mostrando. Lo que nunca se usó (ej.: cargado por error) se puede eliminar. Una placa o un listón en uso no cambia su color, espesor, medidas ni sección (se da de baja y se carga el nuevo), y un color en uso no cambia si tiene veta.
+- **RF-11.2** Tipos de filo: no tienen baja; un filo en uso no cambia su espesor ni su descuento por canto (el listado de corte se calcula con ese descuento y cambiarían los trabajos anteriores), y "Sin filo" no se modifica ni se elimina porque el sistema lo asigna a las piezas laqueadas. Guías: una guía nueva se crea basada en otra y copia sus piezas (las reglas son datos, no código); se cargan sus largos disponibles y, en las laterales ocultas, el alto del contrafrente de cada marca. Los cambios en estilos de frente y guías en uso se aplican a los módulos que se calculen de ahí en más.
 
 ### M4 — Trabajos, muebles y módulos
 - **RF-12** Un trabajo pertenece a una obra (y, a través de ella, a un cliente) y contiene uno o más muebles. En una obra se puede registrar todo en un solo trabajo o en varios trabajos por etapas, cada uno con su propio estado, montos y fechas.

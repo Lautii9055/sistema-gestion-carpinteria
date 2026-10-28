@@ -339,3 +339,85 @@ class MaterialesEnMemoria:
 
     def eliminar_liston(self, id_liston):
         del self.l[id_liston]
+
+
+class CatalogoEnMemoria:
+    """Filos, lacas, estilos y guías en memoria, con los datos iniciales de la base."""
+    def __init__(self) -> None:
+        from decimal import Decimal as D
+        from carpinteria.negocio.entidades import (EstiloFrente, MarcaPintura, PiezaGuia, TerminacionLaca,
+                                                  TipoFilo, TipoGuia)
+        self.filos_ = {1: TipoFilo(1, "Sin filo", D("0.00"), D("0.00")), 2: TipoFilo(2, "0,45 mm", D("0.45"), D("0.00")),
+                       3: TipoFilo(3, "2 mm", D("2.00"), D("0.20"))}
+        self.marcas_ = {1: MarcaPintura(1, "Alba"), 2: MarcaPintura(2, "Sherwin Williams")}
+        self.colores_ = {}
+        self.terminaciones_ = {i: TerminacionLaca(i, n) for i, n in enumerate(["Mate", "Semimate", "Brillante"], 1)}
+        self.estilos_ = {1: EstiloFrente(1, "Con tirador", D("0.4"), D("0.4"), D("0.3"))}
+        self.tipos_pieza = {"Lateral de cajón": 10, "Contrafrente de cajón": 11, "Frente interno de cajón": 12,
+                            "Piso de cajón": 13}
+        tele = (PiezaGuia(10, "Lateral de cajón", 2, None, D("0.0"), D("0.0")),
+                PiezaGuia(11, "Contrafrente de cajón", 1, D("6.3"), None, D("0.0")),
+                PiezaGuia(12, "Frente interno de cajón", 1, D("6.3"), None, D("3.0")),
+                PiezaGuia(13, "Piso de cajón", 1, D("2.7"), D("0.0"), None))
+        oculta = (PiezaGuia(13, "Piso de cajón", 1, D("7.5"), D("1.0"), None),)
+        self.guias_ = {1: TipoGuia(1, "Telescópica cierre suave", None, D("0.2"), piezas=tele),
+                       2: TipoGuia(2, "Lateral oculto Eurohard", "Eurohard", D("0.8"), piezas=oculta)}
+        self.en_uso = set()   # ("filo", id), ("color", id), ("guia", id), ...
+
+    def _nuevo(self, d):
+        return max(d, default=0) + 1
+
+    def _uso(self, tipo, x):
+        return replace(x, en_uso=(tipo, x.id) in self.en_uso)
+
+    def _guardar(self, d, x):
+        if x.id is None:
+            x = replace(x, id=self._nuevo(d))
+        d[x.id] = replace(x, en_uso=False) if hasattr(x, "en_uso") else x
+        return x.id
+
+    def filos(self): return [self._uso("filo", f) for f in self.filos_.values()]
+    def guardar_filo(self, f): return self._guardar(self.filos_, f)
+    def eliminar_filo(self, i): del self.filos_[i]
+    def marcas_pintura(self): return list(self.marcas_.values())
+    def guardar_marca_pintura(self, m): return self._guardar(self.marcas_, m)
+    def eliminar_marca_pintura(self, i): del self.marcas_[i]
+
+    def colores_laca(self):
+        return [self._uso("color", replace(c, marca=self.marcas_[c.id_marca].nombre,
+                                           marca_activa=self.marcas_[c.id_marca].es_activo))
+                for c in self.colores_.values()]
+
+    def guardar_color_laca(self, c): return self._guardar(self.colores_, c)
+    def eliminar_color_laca(self, i): del self.colores_[i]
+    def terminaciones(self): return [self._uso("terminacion", t) for t in self.terminaciones_.values()]
+    def guardar_terminacion(self, t): return self._guardar(self.terminaciones_, t)
+    def eliminar_terminacion(self, i): del self.terminaciones_[i]
+    def estilos(self): return [self._uso("estilo", e) for e in self.estilos_.values()]
+    def guardar_estilo(self, e): return self._guardar(self.estilos_, e)
+    def eliminar_estilo(self, i): del self.estilos_[i]
+    def guias(self): return [self._uso("guia", g) for g in self.guias_.values()]
+
+    def guardar_guia(self, g):
+        anterior = self.guias_.get(g.id)
+        i = self._guardar(self.guias_, g)
+        if anterior:   # los largos y las piezas no se tocan al editar los datos de la guía
+            self.guias_[i] = replace(self.guias_[i], largos=anterior.largos, piezas=anterior.piezas)
+        return i
+
+    def eliminar_guia(self, i): del self.guias_[i]
+
+    def copiar_piezas_guia(self, origen, destino):
+        self.guias_[destino] = replace(self.guias_[destino], piezas=self.guias_[origen].piezas)
+
+    def agregar_largo_guia(self, i, largo):
+        self.guias_[i] = replace(self.guias_[i], largos=tuple(sorted(self.guias_[i].largos + (largo,))))
+
+    def quitar_largo_guia(self, i, largo):
+        self.guias_[i] = replace(self.guias_[i], largos=tuple(x for x in self.guias_[i].largos if x != largo))
+
+    def guardar_pieza_guia(self, i, pieza):
+        otras = tuple(p for p in self.guias_[i].piezas if p.id_tipo_pieza != pieza.id_tipo_pieza)
+        self.guias_[i] = replace(self.guias_[i], piezas=otras + (pieza,))
+
+    def id_tipo_pieza(self, nombre): return self.tipos_pieza.get(nombre)

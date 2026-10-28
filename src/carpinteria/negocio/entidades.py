@@ -238,3 +238,82 @@ class Liston:
     alto_pulgadas: Decimal
     es_activo: bool = True
     en_uso: bool = False
+
+
+# ---------- catálogo, parte 2: filos, lacas, frentes y guías ----------
+@dataclass(frozen=True)
+class TipoFilo:
+    id: int | None
+    nombre: str
+    espesor_mm: Decimal
+    descuento_cm: Decimal      # se resta por cada canto con filo en la medida de corte
+    en_uso: bool = False
+
+
+@dataclass(frozen=True)
+class MarcaPintura:
+    id: int | None
+    nombre: str
+    es_activo: bool = True
+
+
+@dataclass(frozen=True)
+class ColorLaca:
+    id: int | None
+    id_marca: int
+    nombre: str | None
+    codigo: str | None
+    es_activo: bool = True
+    marca: str = ""
+    marca_activa: bool = True
+    en_uso: bool = False
+
+    @property
+    def descripcion(self) -> str:
+        if self.nombre and self.codigo:
+            return f"{self.nombre} ({self.codigo})"
+        return self.nombre or self.codigo or ""
+
+
+@dataclass(frozen=True)
+class TerminacionLaca:
+    id: int | None
+    nombre: str
+    es_activo: bool = True
+    en_uso: bool = False
+
+
+@dataclass(frozen=True)
+class EstiloFrente:
+    id: int | None
+    nombre: str
+    luz_superior: Decimal      # cm; negativa = el frente sobresale
+    luz_inferior: Decimal
+    luz_entre_frentes: Decimal
+    descripcion: str | None = None
+    es_activo: bool = True
+    en_uso: bool = False
+
+
+@dataclass(frozen=True)
+class PiezaGuia:
+    """Una pieza que lleva el cajón con esa guía: medida = referencia − descuento."""
+    id_tipo_pieza: int
+    pieza: str
+    cantidad: int
+    descuento_ancho: Decimal | None = None   # respecto del ancho interior del módulo
+    descuento_largo: Decimal | None = None   # respecto del largo de la guía
+    descuento_alto: Decimal | None = None    # respecto del alto del cajón
+    alto_fijo: Decimal | None = None         # alto definido por la marca (contrafrente de guía oculta)
+
+
+@dataclass(frozen=True)
+class TipoGuia:
+    id: int | None
+    nombre: str
+    marca: str | None = None
+    espacio_adicional: Decimal = Decimal(0)
+    es_activo: bool = True
+    en_uso: bool = False
+    largos: tuple[Decimal, ...] = ()
+    piezas: tuple[PiezaGuia, ...] = ()

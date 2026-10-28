@@ -15,7 +15,11 @@ if TYPE_CHECKING:
     from carpinteria.presentacion.app import Aplicacion
 
 PESTANAS = [("placas", "Placas", ft.Icons.LAYERS_OUTLINED), ("colores", "Colores y marcas", ft.Icons.PALETTE_OUTLINED),
-            ("listones", "Listones", ft.Icons.STRAIGHTEN)]
+            ("listones", "Listones", ft.Icons.STRAIGHTEN), ("filos", "Filos", ft.Icons.BORDER_OUTER),
+            ("lacas", "Lacas", ft.Icons.FORMAT_PAINT_OUTLINED), ("frentes", "Estilos de frente", ft.Icons.DOOR_SLIDING_OUTLINED),
+            ("guias", "Guías", ft.Icons.VIEW_AGENDA_OUTLINED)]
+BUSQUEDA = {"placas": "Color, código, marca o espesor (ej.: blanco 18mm)", "colores": "Color, código o marca",
+            "lacas": "Color de laca, código o marca"}
 ESPERA_BUSQUEDA = 0.3
 FILTRO_NUMERO = ft.InputFilter(regex_string=r"^[0-9.,]{0,7}$", allow=True, replacement_string="")
 
@@ -381,6 +385,7 @@ def _vista_listones(app: Aplicacion, estado: dict) -> list[ft.Control]:
 
 # ---------- pantalla ----------
 def construir(app: Aplicacion) -> ft.Control:
+    from carpinteria.presentacion import vista_catalogo as vc   # aquí para evitar una importación circular
     p = app.paleta
     estado = _estado(app)
     pestana = estado["pestana"]
@@ -398,28 +403,36 @@ def construir(app: Aplicacion) -> ft.Control:
             bgcolor=p.acento if clave == pestana else None, border=ft.Border.all(1, p.borde_fuerte),
             border_radius=99, padding=ft.Padding.symmetric(horizontal=16, vertical=10), ink=True,
             on_click=lambda _, c=clave: cambiar_pestana(c))
-        for clave, texto, icono in PESTANAS], spacing=10)
+        for clave, texto, icono in PESTANAS], spacing=10, run_spacing=10, wrap=True)
 
     nuevo = {
         "placas": ("Nueva placa", lambda _: _dialogo_placa(app)),
         "colores": ("Nueva marca", lambda _: _dialogo_marca(app)),
         "listones": ("Nuevo listón", lambda _: _dialogo_liston(app)),
+        "filos": ("Nuevo filo", lambda _: vc.dialogo_filo(app)),
+        "lacas": ("Nuevo color de laca", lambda _: vc.dialogo_color_laca(app)),
+        "frentes": ("Nuevo estilo", lambda _: vc.dialogo_estilo(app)),
+        "guias": ("Nueva guía", lambda _: vc.dialogo_guia(app)),
     }[pestana]
     acciones = [componentes.boton_con_icono(nuevo[0], ft.Icons.ADD, p, nuevo[1])]
     if pestana == "colores":
         acciones.insert(0, componentes.boton_con_icono("Nuevo color", ft.Icons.PALETTE_OUTLINED, p,
                                                        lambda _: _dialogo_color(app), principal=False))
+    if pestana == "lacas":
+        acciones.insert(0, componentes.boton_con_icono("Nueva marca", ft.Icons.ADD, p,
+                                                       lambda _: vc.dialogo_marca_pintura(app), principal=False))
 
     resultados = ft.Column(spacing=10)
-    construir_lista = {"placas": _vista_placas, "colores": _vista_colores, "listones": _vista_listones}[pestana]
+    construir_lista = {"placas": _vista_placas, "colores": _vista_colores, "listones": _vista_listones,
+                       "filos": vc.vista_filos, "lacas": vc.vista_lacas, "frentes": vc.vista_estilos,
+                       "guias": vc.vista_guias}[pestana]
 
     def cargar() -> None:
         resultados.controls = construir_lista(app, estado)
         app.page.update()
 
     busqueda = tema.campo("Buscar", p, value=estado["texto"], prefix_icon=ft.Icons.SEARCH,
-                          hint_text="Color, código, marca o espesor (ej.: blanco 18mm)",
-                          visible=pestana != "listones")
+                          hint_text=BUSQUEDA.get(pestana, ""), visible=pestana in BUSQUEDA)
     pedido = {"numero": 0}
 
     async def buscar_luego(numero: int) -> None:
@@ -434,7 +447,8 @@ def construir(app: Aplicacion) -> ft.Control:
 
     busqueda.on_change = al_tipear
     ver_bajas = ft.Switch(label="Mostrar dados de baja", value=estado["bajas"], active_color=p.acento,
-                          label_text_style=ft.TextStyle(color=p.texto_secundario, size=14))
+                          label_text_style=ft.TextStyle(color=p.texto_secundario, size=14),
+                          visible=pestana != "filos")   # los filos no tienen baja
 
     def al_cambiar_bajas(_) -> None:
         estado["bajas"] = bool(ver_bajas.value)
@@ -446,7 +460,8 @@ def construir(app: Aplicacion) -> ft.Control:
     return ft.Column([
         componentes.encabezado_seccion(
             "Catálogo", "Materiales",
-            "Lo que no se usó nunca se puede eliminar; lo que ya está en trabajos se da de baja y deja de ofrecerse.",
+            "Todo lo que usa el despiece. Lo que nunca se usó se puede eliminar; lo que ya está en trabajos "
+            "se da de baja y deja de ofrecerse.",
             p, ft.Row(acciones, spacing=10, tight=True)),
         barra,
         busqueda,
