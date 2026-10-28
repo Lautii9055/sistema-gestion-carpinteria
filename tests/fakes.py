@@ -359,7 +359,7 @@ class CatalogoEnMemoria:
                 PiezaGuia(11, "Contrafrente de cajón", 1, D("6.3"), None, D("0.0")),
                 PiezaGuia(12, "Frente interno de cajón", 1, D("6.3"), None, D("3.0")),
                 PiezaGuia(13, "Piso de cajón", 1, D("2.7"), D("0.0"), None))
-        oculta = (PiezaGuia(13, "Piso de cajón", 1, D("7.5"), D("1.0"), None),)
+        oculta = (PiezaGuia(13, "Piso de cajón", 1, D("7.5"), D("0.9"), None),)
         self.guias_ = {1: TipoGuia(1, "Telescópica cierre suave", None, D("0.2"), piezas=tele),
                        2: TipoGuia(2, "Lateral oculto Eurohard", "Eurohard", D("0.8"), piezas=oculta)}
         self.en_uso = set()   # ("filo", id), ("color", id), ("guia", id), ...

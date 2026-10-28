@@ -130,9 +130,9 @@ JOIN dbo.Tipo_Pieza p ON p.nombre_tpi = v.pieza
 CROSS JOIN dbo.Tipo_Guia g
 WHERE g.nombre_tgu = N'Telescópica cierre suave';
 
--- Laterales ocultos (las tres marcas): piso = (ancho interior - 7,5) x (largo guía - 1)
+-- Laterales ocultos (las tres marcas): piso = (ancho interior - 7,5) x (largo guía - 0,9)
 INSERT INTO dbo.Pieza_Guia (id_tipo_guia, id_tipo_pieza, cantidad_pgu, descuento_ancho_pgu, descuento_largo_pgu, descuento_alto_pgu, alto_fijo_pgu)
-SELECT g.id_tipo_guia, p.id_tipo_pieza, 1, 7.5, 1.0, NULL, NULL
+SELECT g.id_tipo_guia, p.id_tipo_pieza, 1, 7.5, 0.9, NULL, NULL
 FROM dbo.Tipo_Guia g
 JOIN dbo.Tipo_Pieza p ON p.nombre_tpi = N'Piso de cajón'
 WHERE g.nombre_tgu LIKE N'Lateral oculto%';

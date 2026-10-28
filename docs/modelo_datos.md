@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 1.5 (fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
+**Versión del documento:** 1.6 (piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -333,7 +333,7 @@ Cada pieza usa dos de las tres referencias: la que no usa queda en nulo.
 | Pieza | Cant. | Desc. ancho | Desc. largo | Desc. alto | Alto fijo |
 |-------|-------|-------------|-------------|------------|-----------|
 | Contrafrente de cajón | 1 | 8,7 | — | — | según marca |
-| Piso de cajón (18 o 15 mm) | 1 | 7,5 | 1 | — | — |
+| Piso de cajón (18 o 15 mm) | 1 | 7,5 | 0,9 | — | — |
 
 > Al no tener fila para Lateral de cajón ni Frente interno, el sistema no los genera.
 
@@ -708,7 +708,7 @@ Mate, Semimate, Brillante.
 | minutos_inactividad | 15 | min |
 | largo_minimo_contrasena | 10 | caracteres |
 
-> Las constantes de piezas de lateral oculto son las mismas para las tres marcas y se cargan en `Pieza_Guia` para cada una: contrafrente (trasera) = ancho interior − 8,7 × alto según la marca; piso = (ancho interior − 7,5) × (largo guía − 1). Solo el alto de la trasera varía por marca.
+> Las constantes de piezas de lateral oculto son las mismas para las tres marcas y se cargan en `Pieza_Guia` para cada una: contrafrente (trasera) = ancho interior − 8,7 × alto según la marca; piso = (ancho interior − 7,5) × (largo guía − 0,9). Solo el alto de la trasera varía por marca.
 
 ---
 

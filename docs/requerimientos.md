@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 2.8 (catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
+**Versión del documento:** 2.9 (piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -253,12 +253,12 @@ Los laterales son parte del herraje, por lo que no se cortan.
 | Pieza | Cant. | Medidas |
 |-------|-------|---------|
 | Contrafrente (18 mm) | 1 | (A − 2e − 8,7) × alto fijo según la marca |
-| Piso (18 o 15 mm) | 1 | (A − 2e − 7,5) × (largo guía − 1) |
+| Piso (18 o 15 mm) | 1 | (A − 2e − 7,5) × (largo guía − 0,9) |
 | Frente visible | 1 | ver más abajo |
 
-El frente visible se fija directamente a las guías (no hay frente interno). Las constantes (8,7, 7,5 y 1) son las mismas para Rincón del Herraje, Eurohard y Häfele. Solo el alto del contrafrente varía por marca. Cada marca se carga como un tipo de guía distinto.
+El frente visible se fija directamente a las guías (no hay frente interno). Las constantes (8,7, 7,5 y 0,9) son las mismas para Rincón del Herraje, Eurohard y Häfele. Solo el alto del contrafrente varía por marca. Cada marca se carga como un tipo de guía distinto.
 
-Ejemplo: módulo de 60 de ancho (interior 56,4) con guía de 45 → piso de 48,9 × 44; contrafrente de 47,7 × alto según la marca.
+Ejemplo: módulo de 60 de ancho (interior 56,4) con guía de 45 → piso de 48,9 × 44,1; contrafrente de 47,7 × alto según la marca.
 
 **c) Frente visible**
 Los frentes cubren el alto exterior del módulo. Siendo `n` la cantidad de frentes, `lext` la luz lateral, `lsup` / `linf` las luces superior e inferior y `lf` la luz entre frentes:
