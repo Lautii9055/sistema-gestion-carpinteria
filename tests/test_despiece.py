@@ -261,3 +261,10 @@ def test_piezas_de_material_liso_quedan_rotables():
                                sin_veta=frozenset({Material.ESTRUCTURA, Material.FONDO}), **CON_TIRADOR))
     con_veta = {p.tipo: p.con_veta for p in d.piezas}
     assert con_veta == {"Piso": False, "Techo": False, "Lateral": False, "Fondo": False, "Puerta": True}
+
+
+def test_la_caja_no_puede_ser_mas_alta_que_el_frente():
+    alta = Cajon(TELESCOPICA, D(50), D(18))
+    with pytest.raises(ErrorDespiece, match="más alta que su frente"):
+        calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D(50), ancho_faja=D(10),
+                               cajones=(alta, alta), **CAJONERA_CON_TIRADOR))

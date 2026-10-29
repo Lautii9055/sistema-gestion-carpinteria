@@ -1,6 +1,6 @@
 # Base de datos — Sistema de Gestión para Carpintería
 
-Motor: **SQL Server 2025 Express** · Herramienta: **SSMS 22** · Modelo de datos v1.3 (3FN, 29 tablas)
+Motor: **SQL Server 2025 Express** · Herramienta: **SSMS 22** · Modelo de datos v1.8 (3FN, 30 tablas)
 
 ## 1. Instalación del entorno (Windows)
 
@@ -26,7 +26,7 @@ Abrir cada script en SSMS (**File → Open → File…**) y ejecutarlo con **F5*
 | Orden | Script | Qué hace |
 |-------|--------|----------|
 | 1 | `00_crear_base_de_datos.sql` | Crea la base `Carpinteria` con collation `Modern_Spanish_CI_AI` |
-| 2 | `01_tablas.sql` | Crea las 29 tablas con PK, FK, CHECK, UNIQUE y DEFAULT |
+| 2 | `01_tablas.sql` | Crea las 30 tablas con PK, FK, CHECK, UNIQUE y DEFAULT |
 | 3 | `02_indices.sql` | Índices de FK, de búsqueda y únicos filtrados |
 | 4 | `03_datos_iniciales.sql` | Estados, tipos, filos, guías, estilos, parámetros, tipos de evento y usuario inicial |
 | 5 | `04_procedimientos.sql` | `sp_alta_placa`, `sp_alta_liston`, `sp_eliminar_trabajo`, `sp_registrar_evento` |
@@ -41,6 +41,7 @@ Si la base ya estaba creada, ejecutar además, en orden, las migraciones que fal
 | `07_migracion_entrega_pactada.sql` | Agrega `entrega_aproximada_tra`: permite pactar la entrega por semana |
 | `08_migracion_piso_cajon_oculta.sql` | Corrige el piso del cajón con guía oculta: largo de la guía − 0,9 (antes − 1) |
 | `09_migracion_descuento_fondo.sql` | Agrega el parámetro `descuento_fondo` (0,3 cm): el fondo mide (ancho − 0,3) × (alto − 0,3) |
+| `10_migracion_veta_rotada.sql` | Tabla `Modulo_Veta_Rotada`: tipos de pieza con la veta rotada en cada módulo (se respeta al recalcular) |
 
 `01_tablas.sql` es re-ejecutable: borra las tablas y las vuelve a crear (se pierden los datos). Después hay que volver a correr 02, 03, 04 y 05.
 
@@ -49,7 +50,7 @@ Si la base ya estaba creada, ejecutar además, en orden, las migraciones que fal
 ```sql
 USE Carpinteria;
 
--- Debe devolver 29
+-- Debe devolver 30
 SELECT COUNT(*) AS tablas FROM sys.tables;
 
 -- Catálogos cargados

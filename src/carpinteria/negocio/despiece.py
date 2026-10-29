@@ -185,6 +185,10 @@ def calcular_modulo(m: Modulo, reglas: Reglas = Reglas()) -> Despiece:
     validar(m, reglas)
     piezas = _estructura(m, reglas)
     altos_frentes, alto_puertas = _altos_de_frentes(m)
+    for numero, (cajon, alto_frente) in enumerate(zip(m.cajones, altos_frentes), 1):
+        if cajon.alto_caja > alto_frente:
+            raise ErrorDespiece(f"Cajón {numero}: la caja ({cajon.alto_caja} cm) es más alta que su frente "
+                                f"({alto_frente} cm). Bajá el alto de la caja.")
     piezas += _frentes(m, reglas, altos_frentes, alto_puertas)
     for numero, cajon in enumerate(m.cajones, 1):
         piezas += _caja_del_cajon(m, cajon, numero)

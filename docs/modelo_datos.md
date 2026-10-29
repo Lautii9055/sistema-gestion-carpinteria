@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 1.7 (parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
+**Versión del documento:** 1.8 (tabla Modulo_Veta_Rotada, migración `10`; parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -338,6 +338,14 @@ Cada pieza usa dos de las tres referencias: la que no usa queda en nulo.
 > Al no tener fila para Lateral de cajón ni Frente interno, el sistema no los genera.
 
 **Material de cada pieza del cajón:** el piso usa `Cajon.id_placa_piso`; laterales, contrafrente y frente interno usan la placa de cajones del módulo; el frente visible usa la placa de frentes. Las constantes de la telescópica suponen una caja de 18 mm.
+
+### `Modulo_Veta_Rotada`
+Tipos de pieza a los que, al cargar el módulo, se les rotó el sentido de la veta por defecto (ej.: el fondo o las puertas). El recálculo del módulo los respeta.
+
+| Atributo | Tipo | Restricciones |
+|----------|------|---------------|
+| id_modulo | INT | PK, FK → Modulo (ON DELETE CASCADE) |
+| id_tipo_pieza | INT | PK, FK → Tipo_Pieza |
 
 ### `Cajon`
 | Atributo | Tipo | Restricciones |

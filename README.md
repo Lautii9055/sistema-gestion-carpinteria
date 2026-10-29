@@ -39,7 +39,7 @@ presentacion/  →  negocio/  →  datos/  →  SQL Server
 Cada capa solo conoce a la inmediata inferior. El motor de despiece se arma con componentes que tienen su propia regla de cálculo, así que agregar un tipo de pieza nuevo no requiere modificar los existentes (principio abierto/cerrado).
 
 ## Base de datos
-- Modelo relacional en **3FN**, con **29 tablas** ([modelo de datos](docs/modelo_datos.md), [DER](docs/DER_carpinteria.png)).
+- Modelo relacional en **3FN**, con **30 tablas** ([modelo de datos](docs/modelo_datos.md), [DER](docs/DER_carpinteria.png)).
 - Restricciones con nombre (PK, FK, CHECK, UNIQUE), índices filtrados y procedimientos almacenados transaccionales.
 - Scripts de creación en [`database/`](database/).
 

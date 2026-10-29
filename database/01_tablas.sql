@@ -30,6 +30,7 @@ GO
 DROP TABLE IF EXISTS dbo.Retazo;
 DROP TABLE IF EXISTS dbo.Pieza;
 DROP TABLE IF EXISTS dbo.Cajon;
+DROP TABLE IF EXISTS dbo.Modulo_Veta_Rotada;
 DROP TABLE IF EXISTS dbo.Modulo;
 DROP TABLE IF EXISTS dbo.Zocalo;
 DROP TABLE IF EXISTS dbo.Pieza_Guia;
@@ -455,6 +456,15 @@ CREATE TABLE dbo.Modulo (
     -- Reglas que dependen de otra tabla (ancho de faja solo en cajoneras; una
     -- cajonera no lleva techo, estantes, puertas ni pinos) se validan en la
     -- capa de negocio.
+);
+
+/* Tipos de pieza con la veta rotada al cargar el módulo (se respeta al recalcular). */
+CREATE TABLE dbo.Modulo_Veta_Rotada (
+    id_modulo     INT NOT NULL,
+    id_tipo_pieza INT NOT NULL,
+    CONSTRAINT PK_Modulo_Veta_Rotada PRIMARY KEY (id_modulo, id_tipo_pieza),
+    CONSTRAINT FK_Modulo_Veta_Rotada_Modulo     FOREIGN KEY (id_modulo)     REFERENCES dbo.Modulo (id_modulo) ON DELETE CASCADE,
+    CONSTRAINT FK_Modulo_Veta_Rotada_Tipo_Pieza FOREIGN KEY (id_tipo_pieza) REFERENCES dbo.Tipo_Pieza (id_tipo_pieza)
 );
 
 CREATE TABLE dbo.Cajon (

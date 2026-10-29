@@ -317,3 +317,103 @@ class TipoGuia:
     en_uso: bool = False
     largos: tuple[Decimal, ...] = ()
     piezas: tuple[PiezaGuia, ...] = ()
+
+
+# ---------- muebles, módulos y piezas guardados (M4) ----------
+@dataclass(frozen=True)
+class Mueble:
+    id: int | None
+    id_trabajo: int
+    nombre: str
+    observaciones: str | None = None
+
+
+@dataclass(frozen=True)
+class CajonGuardado:
+    id: int | None
+    id_guia: int
+    id_placa_piso: int
+    alto_caja: Decimal
+    largo_guia: Decimal
+    alto_frente: Decimal | None = None
+
+
+@dataclass(frozen=True)
+class ModuloGuardado:
+    """Un módulo tal como se guarda: medidas, opciones y materiales (ids del catálogo)."""
+    id: int | None
+    id_mueble: int
+    armado: str                       # nombre del Tipo_Armado (ver despiece.Armado)
+    id_placa: int                     # estructura
+    ancho: Decimal
+    alto: Decimal
+    profundidad: Decimal
+    nombre: str | None = None
+    id_estilo: int | None = None
+    id_placa_frentes: int | None = None
+    id_placa_cajones: int | None = None
+    id_placa_fondo: int | None = None      # None = sin fondo
+    id_liston: int | None = None           # None = sin pinos
+    id_color_laca: int | None = None       # frentes laqueados
+    id_terminacion: int | None = None
+    lleva_techo: bool = True
+    ancho_faja: Decimal | None = None
+    estantes: int = 0
+    puertas: int = 0
+    luz_superior: Decimal = Decimal(0)
+    luz_inferior: Decimal = Decimal(0)
+    luz_entre_frentes: Decimal = Decimal(0)
+    cajones: tuple[CajonGuardado, ...] = ()
+    rotar: frozenset[str] = frozenset()    # tipos de pieza con la veta rotada
+
+
+@dataclass(frozen=True)
+class ZocaloGuardado:
+    id: int | None
+    id_mueble: int
+    id_placa: int
+    largo: Decimal
+    alto: Decimal
+    profundidad: Decimal
+    refuerzos: int = 0
+    id_placa_oculta: int | None = None
+    descripcion: str | None = None
+
+
+@dataclass(frozen=True)
+class Cantos:
+    """Cantos con filo. La pieza se dibuja con la medida 1 en horizontal: superior e
+    inferior son paralelos a la veta; izquierdo y derecho, los de la medida 2."""
+    superior: bool = False
+    inferior: bool = False
+    izquierdo: bool = False
+    derecho: bool = False
+
+    @property
+    def cantidad(self) -> int:
+        return sum((self.superior, self.inferior, self.izquierdo, self.derecho))
+
+    def rotados(self) -> "Cantos":
+        return Cantos(self.izquierdo, self.derecho, self.superior, self.inferior)
+
+
+@dataclass(frozen=True)
+class PiezaGuardada:
+    id: int | None
+    tipo: str                         # nombre del Tipo_Pieza
+    id_material: int
+    cantidad: int
+    medida_1: Decimal                 # final, sentido de la veta
+    medida_2: Decimal | None
+    id_mueble: int | None = None      # dueño: exactamente uno de los cuatro
+    id_modulo: int | None = None
+    id_cajon: int | None = None
+    id_zocalo: int | None = None
+    orden_cajon: int | None = None    # al generar, a qué cajón del módulo pertenece (antes de tener id)
+    id_tipo_filo: int | None = None   # None = filo SIN DEFINIR
+    cantos: Cantos = Cantos()
+    id_color_filo: int | None = None  # None = mismo color que la pieza
+    id_color_laca: int | None = None
+    id_terminacion: int | None = None
+    descripcion: str | None = None
+    editada: bool = False

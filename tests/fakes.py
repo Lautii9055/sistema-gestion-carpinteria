@@ -421,3 +421,130 @@ class CatalogoEnMemoria:
         self.guias_[i] = replace(self.guias_[i], piezas=otras + (pieza,))
 
     def id_tipo_pieza(self, nombre): return self.tipos_pieza.get(nombre)
+
+
+class MueblesEnMemoria:
+    def __init__(self) -> None:
+        self.muebles_, self.modulos_, self.zocalos_, self.piezas_ = {}, {}, {}, {}
+        self.cajones_ = {}   # id_cajon -> (id_modulo, orden)
+
+    @staticmethod
+    def _nuevo(d):
+        return max(d, default=0) + 1
+
+    def muebles(self, id_trabajo):
+        return [m for m in self.muebles_.values() if m.id_trabajo == id_trabajo]
+
+    def mueble(self, i):
+        return self.muebles_.get(i)
+
+    def guardar_mueble(self, m):
+        i = m.id or self._nuevo(self.muebles_)
+        self.muebles_[i] = replace(m, id=i)
+        return i
+
+    def eliminar_mueble(self, i):
+        for mod in [x for x in self.modulos_.values() if x.id_mueble == i]:
+            self.eliminar_modulo(mod.id)
+        for z in [x for x in self.zocalos_.values() if x.id_mueble == i]:
+            self.eliminar_zocalo(z.id)
+        self._borrar_piezas(lambda p: p.id_mueble == i)
+        del self.muebles_[i]
+
+    def modulos(self, id_mueble):
+        return [m for m in self.modulos_.values() if m.id_mueble == id_mueble]
+
+    def modulo(self, i):
+        return self.modulos_.get(i)
+
+    def _borrar_piezas(self, condicion):
+        for k in [k for k, p in self.piezas_.items() if condicion(p)]:
+            del self.piezas_[k]
+
+    def guardar_modulo(self, m, piezas_nuevas):
+        i = m.id or self._nuevo(self.modulos_)
+        self.modulos_[i] = replace(m, id=i)
+        actuales = {orden: c for c, (mod, orden) in self.cajones_.items() if mod == i}
+        for orden, id_cajon in list(actuales.items()):
+            if orden > len(m.cajones):
+                self._borrar_piezas(lambda p, c=id_cajon: p.id_cajon == c)
+                del self.cajones_[id_cajon]
+                del actuales[orden]
+        for orden in range(1, len(m.cajones) + 1):
+            if orden not in actuales:
+                nuevo = self._nuevo(self.cajones_)
+                self.cajones_[nuevo] = (i, orden)
+                actuales[orden] = nuevo
+        ids_cajones = set(actuales.values())
+        self._borrar_piezas(lambda p: not p.editada and (p.id_modulo == i or p.id_cajon in ids_cajones))
+        for p in piezas_nuevas:
+            k = self._nuevo(self.piezas_)
+            if p.orden_cajon:
+                self.piezas_[k] = replace(p, id=k, id_modulo=None, id_cajon=actuales[p.orden_cajon])
+            else:
+                self.piezas_[k] = replace(p, id=k, id_modulo=i)
+        return i
+
+    def eliminar_modulo(self, i):
+        ids = {c for c, (mod, _) in self.cajones_.items() if mod == i}
+        self._borrar_piezas(lambda p: p.id_modulo == i or p.id_cajon in ids)
+        for c in ids:
+            del self.cajones_[c]
+        del self.modulos_[i]
+
+    def zocalos(self, id_mueble):
+        return [z for z in self.zocalos_.values() if z.id_mueble == id_mueble]
+
+    def zocalo(self, i):
+        return self.zocalos_.get(i)
+
+    def guardar_zocalo(self, z, piezas_nuevas):
+        i = z.id or self._nuevo(self.zocalos_)
+        self.zocalos_[i] = replace(z, id=i)
+        self._borrar_piezas(lambda p: not p.editada and p.id_zocalo == i)
+        for p in piezas_nuevas:
+            k = self._nuevo(self.piezas_)
+            self.piezas_[k] = replace(p, id=k, id_zocalo=i)
+        return i
+
+    def eliminar_zocalo(self, i):
+        self._borrar_piezas(lambda p: p.id_zocalo == i)
+        del self.zocalos_[i]
+
+    def _con_orden(self, p):
+        return replace(p, orden_cajon=self.cajones_[p.id_cajon][1]) if p.id_cajon else p
+
+    def piezas_de_modulo(self, i):
+        ids = {c for c, (mod, _) in self.cajones_.items() if mod == i}
+        return [self._con_orden(p) for p in self.piezas_.values() if p.id_modulo == i or p.id_cajon in ids]
+
+    def piezas_de_zocalo(self, i):
+        return [p for p in self.piezas_.values() if p.id_zocalo == i]
+
+    def trabajo_de_pieza(self, i):
+        p = self.piezas_.get(i)
+        if p is None:
+            return None
+        if p.id_mueble:
+            id_mueble = p.id_mueble
+        elif p.id_zocalo:
+            id_mueble = self.zocalos_[p.id_zocalo].id_mueble
+        else:
+            id_modulo = p.id_modulo or self.cajones_[p.id_cajon][0]
+            id_mueble = self.modulos_[id_modulo].id_mueble
+        return self.muebles_[id_mueble].id_trabajo
+
+    def piezas_de_trabajo(self, id_trabajo):
+        return [self._con_orden(p) for p in self.piezas_.values() if self.trabajo_de_pieza(p.id) == id_trabajo]
+
+    def pieza(self, i):
+        p = self.piezas_.get(i)
+        return self._con_orden(p) if p else None
+
+    def guardar_pieza(self, p):
+        i = p.id or self._nuevo(self.piezas_)
+        self.piezas_[i] = replace(p, id=i)
+        return i
+
+    def eliminar_pieza(self, i):
+        del self.piezas_[i]
