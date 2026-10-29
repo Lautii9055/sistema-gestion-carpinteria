@@ -25,6 +25,7 @@ INSERT INTO dbo.Parametro (clave_par, valor_par, unidad_par, descripcion_par) VA
     ('luz_entre_puertas',         0.3, N'cm', N'Luz entre puertas contiguas'),
     ('tolerancia_sobresale_guia', 0.5, N'cm', N'Cuánto puede sobresalir la guía al elegir su largo'),
     ('retiro_zocalo',             1.5, N'cm', N'Retiro del zócalo respecto del frente del mueble'),
+    ('descuento_fondo',           0.3, N'cm', N'El fondo mide esto menos que el módulo, en ancho y en alto'),
     ('porcentaje_sena',          60.0, N'%',  N'Seña sugerida sobre el monto total'),
     -- Seguridad del ingreso
     ('max_intentos_login',        5,   N'intentos',   N'Contraseñas incorrectas seguidas antes de bloquear al usuario'),

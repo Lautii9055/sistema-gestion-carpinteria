@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 2.9 (piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
+**Versión del documento:** 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -112,7 +112,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
   - Tipo de armado: módulo (piso y techo enteros) o cajonera (laterales enteros con fajas).
   - Estructura: con techo o sin techo (bajo mesada).
   - Cantidad de estantes.
-  - Fondo: sí / no.
+  - Fondo: sí / no. Si lleva, mide 0,3 cm menos que el módulo en ancho y alto (parámetro `descuento_fondo`).
   - Puertas: cantidad.
   - Cajones: cantidad, tipo de guía, alto estimado de la caja y, opcionalmente, alto del frente.
   - Estilo de frente y luces: se elige un estilo (con tirador, alacena que sobresale abajo, bajo mesada con gola, etc.) que completa las luces superior, inferior y entre frentes; luego se pueden ajustar (ej.: abajo a filo de la cajonera = 0). Una luz negativa indica que el frente sobresale.
@@ -175,8 +175,8 @@ El inventario es de uso interno del taller: registra los sobrantes que llegan de
 
 ### 4.1 Convenciones
 - **RN-01** Todas las medidas se expresan en centímetros con un decimal.
-- **RN-02** La primera medida de una pieza es siempre el sentido de la veta. En colores lisos el orden es indistinto.
-- **RN-02.1** El sentido de la veta no es fijo: cada tipo de pieza propone uno por defecto, pero el usuario puede rotarlo pieza por pieza según el gusto del cliente o para reducir desperdicio. Rotar intercambia el orden de las medidas.
+- **RN-02** La primera medida de una pieza es SIEMPRE el sentido de la veta. En colores lisos (sin veta) la pieza se puede rotar y el sentido lo define el menor desperdicio: mientras no exista el optimizador de corte (versión futura), el listado marca esas piezas como rotables para que la maderera las optimice.
+- **RN-02.1** El sentido de la veta no es fijo: cada tipo de pieza propone uno por defecto, pero el usuario puede rotarlo pieza por pieza según el gusto del cliente o para reducir desperdicio. Rotar intercambia el orden de las medidas. Al cargar un módulo se puede elegir, para cada tipo de pieza (puertas, laterales, fondo, etc.), si se rota el sentido por defecto; después se puede rotar pieza por pieza.
   - **Vertical (en el alto):** puertas y laterales.
   - **Horizontal (en el largo):** estantes, pisos, techos, fajas y frentes de cajón.
 - **RN-03** Los resultados se redondean hacia abajo al milímetro (ej.: 44,55 → 44,5).
@@ -202,7 +202,7 @@ Siendo `A` ancho, `H` alto, `P` profundidad y `e` el espesor de placa (1,8 cm):
 | Laterales con techo | 2 | (H − 2e) × P |
 | Laterales sin techo | 2 | (H − e) × P |
 | Estantes | n | (A − 2e) × P |
-| Fondo (opcional, 5,5 mm) | 1 | A × H |
+| Fondo (opcional, 5,5 mm) | 1 | (A − 0,3) × (H − 0,3) |
 | Pinos (bajo mesada, 2×1") | 2 | largo = A − 2e (uno adelante y uno atrás, arriba) |
 
 ### 4.3 Puertas
@@ -326,7 +326,7 @@ Ejemplo: tramo de 180 × 55 → el sistema propone un zócalo de 180 × 53,5. Si
 piso 90 × 55 · laterales 73,2 × 55 (×2) · estante 86,4 × 55 · pinos 86,4 (×2).
 
 **Módulo con techo 90 × 60 × 40, 1 estante, fondo, 2 puertas con filo de 2 mm:**
-piso y techo 90 × 40 (×2) · laterales 56,4 × 40 (×2) · estante 86,4 × 40 · fondo 90 × 60 · puertas: final 59,2 × 44,5 → corte 58,8 × 44,1 con filo de 2 mm en los 4 cantos (×2), con veta vertical por defecto.
+piso y techo 90 × 40 (×2) · laterales 56,4 × 40 (×2) · estante 86,4 × 40 · fondo 59,7 × 89,7 (veta vertical por defecto; (90 − 0,3) × (60 − 0,3)) · puertas: final 59,2 × 44,5 → corte 58,8 × 44,1 con filo de 2 mm en los 4 cantos (×2), con veta vertical por defecto.
 
 **Cajonera 60 × 34 × 50, fajas de luz de 10 cm, 2 cajones telescópicos con tirador, frentes con filo de 2 mm, caja estimada de 12:**
 laterales 34 × 50 (×2) · fajas 56,4 × 10 (×4) · frentes final 59,4 × 16,2 → corte 59,0 × 15,8 (×2) · por cajón (guía de 50): laterales 50 × 12 (×2), contrafrente 50,1 × 12, frente interno 50,1 × 9, fondo de 5,5 mm 53,7 × 50.
@@ -354,6 +354,7 @@ Los valores de cálculo se guardan en la base de datos y se pueden modificar sin
 | Luz entre puertas | 0,3 cm |
 | Tolerancia para que la guía sobresalga | 0,5 cm |
 | Retiro del zócalo (frente; a los costados lo aplica el usuario) | 1,5 cm |
+| Descuento del fondo (en ancho y en alto) | 0,3 cm |
 | Porcentaje de seña | 60% |
 
 Otros valores de cálculo viven en la entidad a la que pertenecen, no como parámetros generales:

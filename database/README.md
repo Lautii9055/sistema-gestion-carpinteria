@@ -40,6 +40,7 @@ Si la base ya estaba creada, ejecutar además, en orden, las migraciones que fal
 | `06_migracion_fecha_presupuesto.sql` | Agrega la fecha de presupuesto del trabajo (editable), un CHECK para que ninguna fecha sea anterior a ella, su índice y el evento de auditoría `CAMBIO_FECHA_PRESUPUESTO` |
 | `07_migracion_entrega_pactada.sql` | Agrega `entrega_aproximada_tra`: permite pactar la entrega por semana |
 | `08_migracion_piso_cajon_oculta.sql` | Corrige el piso del cajón con guía oculta: largo de la guía − 0,9 (antes − 1) |
+| `09_migracion_descuento_fondo.sql` | Agrega el parámetro `descuento_fondo` (0,3 cm): el fondo mide (ancho − 0,3) × (alto − 0,3) |
 
 `01_tablas.sql` es re-ejecutable: borra las tablas y las vuelve a crear (se pierden los datos). Después hay que volver a correr 02, 03, 04 y 05.
 

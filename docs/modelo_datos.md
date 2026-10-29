@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 1.6 (piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
+**Versión del documento:** 1.7 (parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -702,6 +702,7 @@ Mate, Semimate, Brillante.
 | luz_entre_puertas | 0,3 | cm |
 | tolerancia_sobresale_guia | 0,5 | cm |
 | retiro_zocalo | 1,5 | cm |
+| descuento_fondo | 0,3 | cm |
 | porcentaje_sena | 60 | % |
 | max_intentos_login | 5 | intentos |
 | minutos_bloqueo | 15 | min |
