@@ -365,6 +365,8 @@ class ModuloGuardado:
     luz_entre_frentes: Decimal = Decimal(0)
     cajones: tuple[CajonGuardado, ...] = ()
     rotar: frozenset[str] = frozenset()    # tipos de pieza con la veta rotada
+    luz_izquierda: Decimal = Decimal("0.3")   # costados de puertas y frentes; 0,15 junto a otro módulo
+    luz_derecha: Decimal = Decimal("0.3")
 
 
 @dataclass(frozen=True)

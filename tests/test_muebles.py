@@ -1,3 +1,4 @@
+from dataclasses import replace
 """Guardar el despiece: módulos, zócalos y piezas, recálculo y filos (RF-12 a RF-19)."""
 from datetime import date, datetime, time
 from decimal import Decimal as D
@@ -44,7 +45,7 @@ def taller():
     servicio = ServicioMuebles(repo, trabajos, materiales, catalogo, ParametrosEnMemoria())
     id_mueble = servicio.guardar_mueble(None, id_trabajo, "Bajo mesada cocina")
     return {"servicio": servicio, "repo": repo, "placas": placas, "id_mueble": id_mueble, "id_trabajo": id_trabajo,
-            "trabajos": servicio_trabajos, "sesion": sesion}
+            "trabajos": servicio_trabajos, "sesion": sesion, "materiales": m, "catalogo": catalogo}
 
 
 def _modulo(t, **cambios):
@@ -101,7 +102,7 @@ def test_cajonera_con_cajones_guarda_piezas_por_cajon(taller):
     t = taller
     caj = CajonGuardado(None, 1, t["placas"]["blanco55"], D(12), D(50))
     id_modulo, _ = t["servicio"].guardar_modulo(_modulo(
-        t, armado="Cajonera con fajas de luz", alto=D(34), profundidad=D(50), puertas=0, estantes=0,
+        t, armado="Cajonera con fajas de luz", alto=D(34), profundidad=D("51.8"), puertas=0, estantes=0,
         ancho=D(60), ancho_faja=D(10), id_placa_fondo=None, cajones=(caj, caj),
         luz_superior=D("0.6"), luz_inferior=D("0.6")))
     piezas = _piezas(t, id_modulo)
@@ -123,7 +124,7 @@ def test_recalculo_conserva_filos_y_respeta_lo_editado(taller):
     puerta = piezas[("Puerta", None)]
     assert (puerta.medida_1, puerta.id_tipo_filo, puerta.cantos.cantidad) == (D("69.2"), FILO_2, 4)
     assert (piezas[("Estante", None)].medida_1, piezas[("Estante", None)].editada) == (D("86.0"), True)
-    assert len(avisos) == 1 and "Estante" in avisos[0] and "86.4 × 40.0" in avisos[0]
+    assert len(avisos) == 1 and "Estante" in avisos[0] and "86.4 × 38.2" in avisos[0]
     assert len([p for p in t["repo"].piezas_de_modulo(id_modulo) if p.tipo == "Estante"]) == 1
 
 
@@ -131,7 +132,7 @@ def test_quitar_un_cajon_avisa_si_tenia_piezas_editadas(taller):
     t = taller
     s = t["servicio"]
     caj = CajonGuardado(None, 1, t["placas"]["blanco55"], D(12), D(50))
-    base = dict(armado="Cajonera con fajas de luz", alto=D(80), profundidad=D(50), puertas=0, estantes=0,
+    base = dict(armado="Cajonera con fajas de luz", alto=D(80), profundidad=D("51.8"), puertas=0, estantes=0,
                 ancho=D(60), ancho_faja=D(10), id_placa_fondo=None, luz_superior=D("0.6"), luz_inferior=D("0.6"))
     id_modulo, _ = s.guardar_modulo(_modulo(t, cajones=(caj, caj, caj), **base))
     s.editar_pieza(_piezas(t, id_modulo)[("Frente de cajón", 3)].id, 1, D("59.4"), D(25))
@@ -176,7 +177,7 @@ def test_rotar_pieza_intercambia_medidas_y_cantos(taller):
     s.definir_filo([lateral.id], FILO_2, Cantos(izquierdo=True))
     s.rotar_pieza(lateral.id)
     rotada = t["repo"].pieza(lateral.id)
-    assert (rotada.medida_1, rotada.medida_2) == (D(40), D("56.4"))
+    assert (rotada.medida_1, rotada.medida_2) == (D("38.2"), D("56.4"))
     assert rotada.cantos == Cantos(superior=True) and rotada.editada
 
 
@@ -235,3 +236,27 @@ def test_previsualizar_no_guarda(taller):
     assert len(d.piezas) > 0 and t["repo"].piezas_ == {}
     sin_veta = {p.tipo for p in d.piezas if not p.con_veta}
     assert {"Lateral", "Fondo"} <= sin_veta and "Puerta" not in sin_veta   # blanco liso; puertas de roble
+
+
+def test_pinos_nacen_sin_filo(taller):
+    t = taller
+    id_liston = t["materiales"].guardar_liston(None, "Pino", "2", "1")
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t, lleva_techo=False, id_liston=id_liston))
+    assert _piezas(t, id_modulo)[("Pino", None)].id_tipo_filo == SIN_FILO
+
+
+def test_profundidad_de_la_caja_usa_el_espesor_de_la_placa_de_frentes(taller):
+    t = taller
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t, profundidad=D(60), luz_derecha=D("0.15")))
+    piezas = _piezas(t, id_modulo)
+    assert piezas[("Lateral", None)].medida_2 == D("58.2")      # frentes de roble de 18 mm
+    assert piezas[("Puerta", None)].medida_2 == D("44.6")       # (90 − 0,3 − 0,15 − 0,3) / 2
+    assert t["repo"].modulo(id_modulo).luz_derecha == D("0.15")
+
+
+def test_largo_de_guia_propuesto_por_la_caja(taller):
+    # Profundidad 51,8 − 1,8 de frentes = caja de 50 → entra la guía de 50 (telescópica, +0,2 ≤ 50,5).
+    guia = taller["catalogo"].guias_[1]
+    taller["catalogo"].guias_[1] = replace(guia, largos=(D(40), D(45), D(50)))
+    assert taller["servicio"].proponer_largo_guia(1, D("51.8")) == D(50)
+    assert taller["servicio"].proponer_largo_guia(1, D(50)) == D(45)

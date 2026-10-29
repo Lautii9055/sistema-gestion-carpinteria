@@ -89,11 +89,25 @@ class Modulo:
     luz_entre_frentes: Decimal = Decimal(0)
     cajones: tuple[Cajon, ...] = ()         # de arriba hacia abajo
     rotar: frozenset[str] = frozenset()     # tipos de pieza con la veta rotada (ej.: {"Fondo", "Puerta"})
+    espesor_frentes: Decimal = Decimal("1.8")   # de la placa de los frentes
+    luz_izquierda: Decimal | None = None    # costado de puertas y frentes; None = la de los parámetros (0,3)
+    luz_derecha: Decimal | None = None      # junto a otro módulo, 0,15: entre los dos suman 0,3
     sin_veta: frozenset["Material"] = frozenset()   # materiales lisos: sus piezas se pueden rotar
 
     @property
     def ancho_interior(self) -> Decimal:
         return self.ancho - 2 * self.espesor
+
+    @property
+    def lleva_frentes(self) -> bool:
+        return bool(self.puertas or self.cajones)
+
+    @property
+    def profundidad_caja(self) -> Decimal:
+        """La profundidad cargada es la total, con los frentes: la caja (laterales, piso,
+        techo, estantes, fajas) es más corta en el espesor de los frentes (60 → 58,2).
+        Sin puertas ni cajones, la caja usa la profundidad completa."""
+        return self.profundidad - self.espesor_frentes if self.lleva_frentes else self.profundidad
 
 
 @dataclass(frozen=True)
@@ -116,6 +130,7 @@ class Despiece:
     piezas: list[Pieza]
     altos_frentes_cajon: list[Decimal] = field(default_factory=list)
     alto_puertas: Decimal | None = None
+    profundidad_caja: Decimal | None = None   # sin los frentes
 
 
 def rotar(pieza: Pieza) -> Pieza:
@@ -151,6 +166,8 @@ def validar(m: Modulo, reglas: Reglas = Reglas()) -> None:
         raise ErrorDespiece("Completá ancho, alto y profundidad del módulo.")
     if m.espesor <= 0 or 2 * m.espesor >= m.ancho:
         raise ErrorDespiece("Revisá el espesor de la placa de la estructura.")
+    if m.lleva_frentes and m.profundidad_caja <= 0:
+        raise ErrorDespiece("La profundidad tiene que ser mayor que el espesor de los frentes.")
     if m.estantes < 0 or m.puertas < 0:
         raise ErrorDespiece("La cantidad de estantes y de puertas no puede ser negativa.")
     if m.armado.es_cajonera:
@@ -175,9 +192,12 @@ def validar(m: Modulo, reglas: Reglas = Reglas()) -> None:
             raise ErrorDespiece(f"Cajón {i}: completá el alto de la caja y el largo de la guía.")
         if c.alto_frente is not None and c.alto_frente <= 0:
             raise ErrorDespiece(f"Cajón {i}: el alto del frente tiene que ser mayor que cero.")
-        if c.largo_guia + c.guia.espacio_adicional > m.profundidad + reglas.tolerancia_guia:
-            raise ErrorDespiece(f"Cajón {i}: la guía de {c.largo_guia} cm no entra en un módulo de "
-                                f"{m.profundidad} cm de profundidad.")
+        if c.largo_guia + c.guia.espacio_adicional > m.profundidad_caja + reglas.tolerancia_guia:
+            raise ErrorDespiece(f"Cajón {i}: la guía de {c.largo_guia} cm no entra en una caja de "
+                                f"{redondear(m.profundidad_caja)} cm de profundidad (sin los frentes).")
+    for lado, luz in (("izquierda", m.luz_izquierda), ("derecha", m.luz_derecha)):
+        if luz is not None and luz < 0:
+            raise ErrorDespiece(f"La luz {lado} no puede ser negativa.")
 
 
 # ---------- cálculo ----------
@@ -195,11 +215,11 @@ def calcular_modulo(m: Modulo, reglas: Reglas = Reglas()) -> Despiece:
     # Sentido de la veta elegido al cargar el módulo y si el material es liso.
     piezas = [rotar(p) if p.tipo in m.rotar else p for p in piezas]
     piezas = [replace(p, con_veta=p.material not in m.sin_veta) for p in piezas]
-    return Despiece(piezas, altos_frentes, alto_puertas)
+    return Despiece(piezas, altos_frentes, alto_puertas, m.profundidad_caja)
 
 
 def _estructura(m: Modulo, reglas: Reglas) -> list[Pieza]:
-    A, H, P, e = m.ancho, m.alto, m.profundidad, m.espesor
+    A, H, P, e = m.ancho, m.alto, m.profundidad_caja, m.espesor
     piezas: list[Pieza] = []
     if m.armado is Armado.MODULO:
         # Piso y techo enteros; laterales entre ellos (RN-04, 4.2).
@@ -257,13 +277,16 @@ def _altos_de_frentes(m: Modulo) -> tuple[list[Decimal], Decimal | None]:
 
 def _frentes(m: Modulo, reglas: Reglas, altos_cajones: list[Decimal], alto_puertas: Decimal | None) -> list[Pieza]:
     piezas = []
-    ancho_frente = _positiva(m.ancho - 2 * reglas.luz_lateral, "el frente")
+    izquierda = reglas.luz_lateral if m.luz_izquierda is None else m.luz_izquierda
+    derecha = reglas.luz_lateral if m.luz_derecha is None else m.luz_derecha
+    disponible = m.ancho - izquierda - derecha
+    ancho_frente = _positiva(disponible, "el frente")
     for numero, alto in enumerate(altos_cajones, 1):
         # Frente de cajón: veta horizontal → ancho primero (59,4 × 16,2).
         piezas.append(Pieza("Frente de cajón", 1, ancho_frente, alto, Material.FRENTES, numero))
     if m.puertas:
         n = m.puertas
-        ancho = _positiva((m.ancho - 2 * reglas.luz_lateral - (n - 1) * reglas.luz_entre_puertas) / n, "la puerta")
+        ancho = _positiva((disponible - (n - 1) * reglas.luz_entre_puertas) / n, "la puerta")
         # Puerta: veta vertical → alto primero (59,2 × 44,5).
         piezas.append(Pieza("Puerta", n, alto_puertas, ancho, Material.FRENTES))
     return piezas

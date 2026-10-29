@@ -34,7 +34,7 @@ from carpinteria.negocio.entidades import Sesion
 from carpinteria.negocio.usuarios import ServicioUsuarios
 from carpinteria.presentacion import (componentes, shell, tema, vista_auditoria,
                                       vista_cambio_contrasena, vista_clientes, vista_ficha_cliente,
-                                      vista_inicio, vista_ingreso, vista_materiales, vista_trabajo,
+                                      vista_inicio, vista_ingreso, vista_materiales, vista_modulo, vista_piezas, vista_trabajo,
                                       vista_trabajos,
                                       vista_usuarios)
 
@@ -137,7 +137,7 @@ class Aplicacion:
         self._mostrar(vista_cambio_contrasena.construir(self, self.sesion))
 
     # Pantallas que no están en el menú y qué opción del menú queda marcada.
-    _SECCION_DEL_MENU = {"cliente": "clientes", "trabajo": "trabajos"}
+    _SECCION_DEL_MENU = {"cliente": "clientes", "trabajo": "trabajos", "modulo": "trabajos", "piezas": "trabajos"}
 
     def ir_a(self, seccion: str, **datos) -> None:
         """Muestra una sección; datos lleva lo que necesita (ej.: id_cliente)."""
@@ -150,6 +150,9 @@ class Aplicacion:
             "trabajos": lambda: vista_trabajos.construir(self),
             "materiales": lambda: vista_materiales.construir(self),
             "trabajo": lambda: vista_trabajo.construir(self, datos["id_trabajo"]),
+            "modulo": lambda: vista_modulo.construir(self, datos["id_mueble"], datos.get("id_modulo")),
+            "piezas": lambda: vista_piezas.construir(self, datos["id_trabajo"], datos.get("id_modulo"),
+                                                     datos.get("id_zocalo")),
             "usuarios": lambda: vista_usuarios.construir(self),
             "auditoria": lambda: vista_auditoria.construir(self),
             "contrasena": lambda: vista_cambio_contrasena.construir_mi_contrasena(self, self.sesion),

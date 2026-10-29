@@ -10,7 +10,7 @@ from carpinteria.negocio.entidades import DetalleTrabajo, EstadoTrabajo
 from carpinteria.negocio.trabajos import (CAMPOS_DE_FECHA, CANCELADO, COBRADO, FECHA_PRESUPUESTO,
                                           ESTADOS_QUE_SE_PUEDEN_ELIMINAR, INSTALADO, texto_entrega, NOMBRE_DE_FECHA, PRESUPUESTADO,
                                           formato_fecha, formato_pesos, leer_fecha, leer_monto)
-from carpinteria.presentacion import componentes, tema, vista_trabajos
+from carpinteria.presentacion import componentes, tema, vista_muebles, vista_trabajos
 from carpinteria.presentacion.tema import SANS_MEDIA, SANS_SEMI, SERIF
 
 if TYPE_CHECKING:
@@ -423,13 +423,6 @@ def construir(app: Aplicacion, id_trabajo: int) -> ft.Control:
             tema.etiqueta_superior("Observaciones", p),
             ft.Text(t.observaciones, size=15, color=p.texto_secundario, selectable=True)], spacing=8),
             p, padding=20))
-    partes += [
-        ft.Row([tema.titulo("Muebles y módulos", p, 30), ft.Container(expand=True),
-                componentes.boton_con_icono("Agregar mueble", ft.Icons.ADD, p, None, principal=False,
-                                            disabled=True, tooltip="Disponible con el catálogo y el despiece")]),
-        componentes.estado_vacio(
-            ft.Icons.CHAIR_OUTLINED, "Próximamente",
-            "Los muebles, módulos y el despiece se cargan acá cuando estén el catálogo de materiales "
-            "y el motor de despiece.", p),
-    ]
+    if app.muebles is not None:
+        partes += vista_muebles.construir_seccion(app, t.id)
     return ft.Column(partes, spacing=18)

@@ -53,12 +53,13 @@ def test_bajo_mesada_90x75x55_sin_techo_1_estante_2_pinos():
 
 
 def test_modulo_con_techo_90x60x40_estante_fondo_2_puertas():
+    # Profundidad total 40 con puertas de 18 mm → la caja mide 38,2 de profundidad.
     d = calcular_modulo(Modulo(Armado.MODULO, D(90), D(60), D(40), estantes=1, puertas=2, lleva_fondo=True,
                                **CON_TIRADOR))
-    assert medidas(d, "Piso") == [(1, D(90), D(40))]
-    assert medidas(d, "Techo") == [(1, D(90), D(40))]
-    assert medidas(d, "Lateral") == [(2, D("56.4"), D(40))]
-    assert medidas(d, "Estante") == [(1, D("86.4"), D(40))]
+    assert medidas(d, "Piso") == [(1, D(90), D("38.2"))]
+    assert medidas(d, "Techo") == [(1, D(90), D("38.2"))]
+    assert medidas(d, "Lateral") == [(2, D("56.4"), D("38.2"))]
+    assert medidas(d, "Estante") == [(1, D("86.4"), D("38.2"))]
     # Fondo (90 − 0,3) × (60 − 0,3), con la veta vertical por defecto: el alto primero.
     assert medidas(d, "Fondo") == [(1, D("59.7"), D("89.7"))]
     # Puertas: alto primero (veta vertical). Ancho (90 − 0,6 − 0,3) / 2 = 44,55 → 44,5.
@@ -69,9 +70,10 @@ def test_modulo_con_techo_90x60x40_estante_fondo_2_puertas():
         (D("58.8"), D("44.1"))
 
 
-def test_cajonera_60x34x50_fajas_de_luz_2_cajones_telescopicos():
+def test_cajonera_60x34x51_8_fajas_de_luz_2_cajones_telescopicos():
+    # 51,8 de profundidad total con frentes de 18 mm → caja de 50 → guía de 50.
     cajon = Cajon(TELESCOPICA, largo_guia=D(50), alto_caja=D(12))
-    d = calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D(50), ancho_faja=D(10),
+    d = calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D("51.8"), ancho_faja=D(10),
                                cajones=(cajon, cajon), **CAJONERA_CON_TIRADOR))
     assert medidas(d, "Lateral") == [(2, D(34), D(50))]
     assert medidas(d, "Faja") == [(4, D("56.4"), D(10))]
@@ -126,7 +128,7 @@ def test_alacena_90x60_2_puertas_sobresale_abajo():
 
 # ---------- 4.1 y 4.4: otras reglas ----------
 def test_cajonera_laterales_de_luz():
-    d = calcular_modulo(Modulo(Armado.CAJONERA_LATERALES_DE_LUZ, D(60), D(34), D(50), ancho_faja=D(12),
+    d = calcular_modulo(Modulo(Armado.CAJONERA_LATERALES_DE_LUZ, D(60), D(34), D("51.8"), ancho_faja=D(12),
                                cajones=(Cajon(TELESCOPICA, D(50), D(12)),), **CAJONERA_CON_TIRADOR))
     assert medidas(d, "Lateral") == [(2, D("30.4"), D(50))]
     assert medidas(d, "Faja") == [(4, D(60), D(12))]
@@ -244,7 +246,7 @@ def test_rotar_la_veta_por_tipo_de_pieza_al_cargar_el_modulo():
                                rotar=frozenset({"Fondo", "Puerta"}), **CON_TIRADOR))
     assert medidas(d, "Fondo") == [(1, D("89.7"), D("59.7"))]
     assert medidas(d, "Puerta") == [(2, D("44.5"), D("59.2"))]
-    assert medidas(d, "Lateral") == [(2, D("56.4"), D(40))]          # el resto, sin cambios
+    assert medidas(d, "Lateral") == [(2, D("56.4"), D("38.2"))]      # el resto, sin cambios
 
 
 def test_rotar_una_pieza_y_los_listones_no_se_rotan():
@@ -264,7 +266,52 @@ def test_piezas_de_material_liso_quedan_rotables():
 
 
 def test_la_caja_no_puede_ser_mas_alta_que_el_frente():
-    alta = Cajon(TELESCOPICA, D(50), D(18))
+    alta = Cajon(TELESCOPICA, D(45), D(18))
     with pytest.raises(ErrorDespiece, match="más alta que su frente"):
         calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D(50), ancho_faja=D(10),
                                cajones=(alta, alta), **CAJONERA_CON_TIRADOR))
+
+
+# ---------- profundidad de la caja y luces laterales ----------
+def test_bajo_mesada_con_puertas_profundidad_60_caja_58_2():
+    d = calcular_modulo(Modulo(Armado.MODULO, D(91), D(78), D(60), lleva_techo=False, estantes=1, puertas=2,
+                               lleva_pinos=True, lleva_fondo=True, luz_superior=D(3), luz_inferior=D(0),
+                               luz_entre_frentes=D(3)))
+    assert medidas(d, "Piso") == [(1, D(91), D("58.2"))]
+    assert medidas(d, "Lateral") == [(2, D("76.2"), D("58.2"))]
+    assert medidas(d, "Estante") == [(1, D("87.4"), D("58.2"))]
+    assert medidas(d, "Fondo") == [(1, D("77.7"), D("90.7"))]           # el fondo no depende de la profundidad
+
+
+def test_espesor_de_frentes_de_15_mm():
+    d = calcular_modulo(Modulo(Armado.MODULO, D(90), D(60), D(60), puertas=2, espesor_frentes=D("1.5"),
+                               **CON_TIRADOR))
+    assert medidas(d, "Lateral") == [(2, D("56.4"), D("58.5"))]
+
+
+def test_sin_frentes_usa_la_profundidad_completa():
+    d = calcular_modulo(Modulo(Armado.MODULO, D(90), D(60), D(60), estantes=2))
+    assert medidas(d, "Lateral") == [(2, D("56.4"), D(60))]
+
+
+def test_luces_laterales_junto_a_otro_modulo():
+    # Dos módulos de 90 unidos: del lado de la unión, 0,15 cada uno → entre las puertas quedan 0,3.
+    izquierdo = calcular_modulo(Modulo(Armado.MODULO, D(90), D(60), D(40), puertas=2, luz_derecha=D("0.15"),
+                                       **CON_TIRADOR))
+    derecho = calcular_modulo(Modulo(Armado.MODULO, D(90), D(60), D(40), puertas=2, luz_izquierda=D("0.15"),
+                                     **CON_TIRADOR))
+    # (90 − 0,3 − 0,15 − 0,3) / 2 = 44,625 → 44,6
+    assert medidas(izquierdo, "Puerta") == medidas(derecho, "Puerta") == [(2, D("59.2"), D("44.6"))]
+
+
+def test_frente_de_cajon_con_luces_laterales_propias():
+    d = calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D("51.8"), ancho_faja=D(10),
+                               cajones=(Cajon(TELESCOPICA, D(50), D(12)),), luz_izquierda=D("0.15"),
+                               luz_derecha=D("0.15"), **CAJONERA_CON_TIRADOR))
+    assert medidas(d, "Frente de cajón", 1)[0][1] == D("59.7")
+
+
+def test_la_guia_se_elige_por_la_profundidad_de_la_caja():
+    with pytest.raises(ErrorDespiece, match="no entra en una caja de 48.2"):
+        calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D(50), ancho_faja=D(10),
+                               cajones=(Cajon(TELESCOPICA, D(50), D(12)),)))

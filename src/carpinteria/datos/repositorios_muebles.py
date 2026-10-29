@@ -109,7 +109,8 @@ class RepositorioMueblesSql:
                            m.profundidad_mod, m.nombre_mod, m.id_estilo_frente, m.id_placa_frentes, m.id_placa_cajones,
                            m.id_placa_fondo, m.id_liston, m.id_color_laca_frentes, m.id_terminacion_laca_frentes,
                            m.lleva_techo_mod, m.ancho_faja_mod, m.cantidad_estantes_mod, m.cantidad_puertas_mod,
-                           m.luz_superior_mod, m.luz_inferior_mod, m.luz_entre_frentes_mod
+                           m.luz_superior_mod, m.luz_inferior_mod, m.luz_entre_frentes_mod,
+                           m.luz_izquierda_mod, m.luz_derecha_mod
                     FROM dbo.Modulo m JOIN dbo.Tipo_Armado ta ON ta.id_tipo_armado = m.id_tipo_armado
                     WHERE {condicion} = ? ORDER BY m.id_modulo""", valor).fetchall()
             resultado = []
@@ -125,6 +126,7 @@ class RepositorioMueblesSql:
                     id_placa_cajones=f[10], id_placa_fondo=f[11], id_liston=f[12], id_color_laca=f[13],
                     id_terminacion=f[14], lleva_techo=bool(f[15]), ancho_faja=f[16], estantes=f[17], puertas=f[18],
                     luz_superior=f[19], luz_inferior=f[20], luz_entre_frentes=f[21],
+                    luz_izquierda=f[22], luz_derecha=f[23],
                     cajones=tuple(CajonGuardado(*c) for c in cajones), rotar=frozenset(r[0] for r in rotar)))
         return resultado
 
@@ -138,7 +140,8 @@ class RepositorioMueblesSql:
     def guardar_modulo(self, m: ModuloGuardado, piezas_nuevas: list[PiezaGuardada]) -> int:
         valores = (m.id_estilo, m.id_placa, m.id_placa_frentes, m.id_placa_cajones, m.id_placa_fondo, m.id_liston,
                    m.id_color_laca, m.id_terminacion, m.nombre, m.ancho, m.alto, m.profundidad, _bit(m.lleva_techo),
-                   m.ancho_faja, m.estantes, m.puertas, m.luz_superior, m.luz_inferior, m.luz_entre_frentes)
+                   m.ancho_faja, m.estantes, m.puertas, m.luz_superior, m.luz_inferior, m.luz_entre_frentes,
+                   m.luz_izquierda, m.luz_derecha)
         with conexion_abierta() as cn:   # todo o nada
             cursor = cn.cursor()
             fila = cursor.execute("SELECT id_tipo_armado FROM dbo.Tipo_Armado WHERE nombre_tar = ?", m.armado).fetchone()
@@ -150,9 +153,10 @@ class RepositorioMueblesSql:
                            id_placa_cajones, id_placa_fondo, id_liston, id_color_laca_frentes,
                            id_terminacion_laca_frentes, nombre_mod, ancho_mod, alto_mod, profundidad_mod,
                            lleva_techo_mod, ancho_faja_mod, cantidad_estantes_mod, cantidad_puertas_mod,
-                           luz_superior_mod, luz_inferior_mod, luz_entre_frentes_mod)
+                           luz_superior_mod, luz_inferior_mod, luz_entre_frentes_mod,
+                           luz_izquierda_mod, luz_derecha_mod)
                        OUTPUT INSERTED.id_modulo
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     m.id_mueble, fila[0], *valores).fetchone()[0]
             else:
                 id_modulo = m.id
@@ -161,7 +165,8 @@ class RepositorioMueblesSql:
                            id_placa_cajones = ?, id_placa_fondo = ?, id_liston = ?, id_color_laca_frentes = ?,
                            id_terminacion_laca_frentes = ?, nombre_mod = ?, ancho_mod = ?, alto_mod = ?,
                            profundidad_mod = ?, lleva_techo_mod = ?, ancho_faja_mod = ?, cantidad_estantes_mod = ?,
-                           cantidad_puertas_mod = ?, luz_superior_mod = ?, luz_inferior_mod = ?, luz_entre_frentes_mod = ?
+                           cantidad_puertas_mod = ?, luz_superior_mod = ?, luz_inferior_mod = ?, luz_entre_frentes_mod = ?,
+                           luz_izquierda_mod = ?, luz_derecha_mod = ?
                        WHERE id_modulo = ?""", fila[0], *valores, id_modulo)
 
             # Cajones por orden (1 = arriba): se actualizan, se agregan o se borran con sus piezas.

@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
+**Versión del documento:** 3.1 (profundidad de la caja = profundidad − espesor de los frentes: 4.2 y 4.4 d; luces laterales por módulo, 0,15 junto a otro módulo: 4.3 y 4.4 c; pantalla de piezas y filos: RF-15.4) · 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -129,6 +129,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
   - **Una sola vez por fila:** las piezas iguales se generan en una fila con su cantidad (ej.: "Lateral ×2"), y el filo se define una vez para toda la fila.
   - **Aplicar a varias piezas:** se seleccionan varias filas (ej.: todos los estantes) y se les asigna el mismo filo de una sola vez.
   - **Dividir una fila:** si una o más piezas de una fila llevan un filo distinto (ej.: de dos laterales, uno es visto), se separan en una fila nueva con su propia cantidad y su propio filo. La fila original reduce su cantidad.
+- **RF-15.4** Pantalla **Piezas y filos**: se abre al guardar un módulo, desde la etiqueta «N sin filo» o el botón «Filos» de cada módulo o zócalo, y desde «Piezas y filos» del trabajo (todas sus piezas). La pieza se dibuja con la medida 1 (sentido de la veta) en horizontal; se toca cada canto para ponerle o sacarle filo, se elige el tipo y el color del filo, y se ve al instante la medida de corte. Al aplicar, pasa a la siguiente pieza que falte. Desde ahí también se rota la veta, se separa una fila, se editan medidas y se laquea. Los listones (pinos) nacen «sin filo».
 - **RF-16** Se puede duplicar un módulo, un mueble o un trabajo anterior como base para uno nuevo.
 
 ### M5 — Despiece automático
@@ -193,7 +194,10 @@ El inventario es de uso interno del taller: registra los sobrantes que llegan de
 | Fajas | 4 | (A − 2e) × ancho faja | A × ancho faja |
 
 ### 4.2 Estructura
-Siendo `A` ancho, `H` alto, `P` profundidad y `e` el espesor de placa (1,8 cm):
+Siendo `A` ancho, `H` alto, `P` profundidad de la caja y `e` el espesor de placa (1,8 cm):
+
+- **La profundidad que se carga es la total del módulo, con los frentes.** Si el módulo lleva puertas o cajones, la caja (laterales, piso, techo, estantes y fajas) mide **P = profundidad − espesor de la placa de los frentes** (18 mm → 60 − 1,8 = 58,2). Sin puertas ni cajones, P es la profundidad cargada.
+- El fondo no depende de la profundidad.
 
 | Pieza | Cant. | Medidas |
 |-------|-------|---------|
@@ -206,9 +210,10 @@ Siendo `A` ancho, `H` alto, `P` profundidad y `e` el espesor de placa (1,8 cm):
 | Pinos (bajo mesada, 2×1") | 2 | largo = A − 2e (uno adelante y uno atrás, arriba) |
 
 ### 4.3 Puertas
-Siendo `n` la cantidad de puertas, `lext` la luz exterior (0,3 cm), `lint` la luz entre puertas (0,3 cm) y `lsup` / `linf` las luces superior e inferior del módulo (según el estilo de frente; una luz negativa indica que la puerta sobresale):
+Siendo `n` la cantidad de puertas, `lizq` / `lder` las luces a cada costado (0,3 cm), `lint` la luz entre puertas (0,3 cm) y `lsup` / `linf` las luces superior e inferior del módulo (según el estilo de frente; una luz negativa indica que la puerta sobresale):
 
-- Ancho = (A − 2 × lext − (n − 1) × lint) / n
+- Ancho = (A − lizq − lder − (n − 1) × lint) / n
+- **Módulos unidos:** los módulos se cargan por separado y después se unen. Del lado en que un módulo queda junto a otro, la luz es 0,15 (la mitad), para que entre los frentes de los dos queden 0,3 y no 0,6. Cada módulo guarda su luz izquierda y derecha; el asistente las muestra en el paso Frentes con un atajo «otro módulo a la izquierda / a la derecha».
 - Alto = H − lsup − linf
 - Esa es la medida final; la de corte descuenta el filo (ver 4.5).
 
@@ -261,12 +266,12 @@ El frente visible se fija directamente a las guías (no hay frente interno). Las
 Ejemplo: módulo de 60 de ancho (interior 56,4) con guía de 45 → piso de 48,9 × 44,1; contrafrente de 47,7 × alto según la marca.
 
 **c) Frente visible**
-Los frentes cubren el alto exterior del módulo. Siendo `n` la cantidad de frentes, `lext` la luz lateral, `lsup` / `linf` las luces superior e inferior y `lf` la luz entre frentes:
+Los frentes cubren el alto exterior del módulo. Siendo `n` la cantidad de frentes, `lizq` / `lder` las luces a cada costado, `lsup` / `linf` las luces superior e inferior y `lf` la luz entre frentes:
 
-- Ancho = A − 2 × lext
+- Ancho = A − lizq − lder
 - Alto (reparto en partes iguales) = (H − lsup − linf − (n − 1) × lf) / n
 - Esa es la medida final; la de corte descuenta el filo (ver 4.5).
-- `lext` = 0,3 cm (igual que las puertas).
+- `lizq` y `lder` = 0,3 cm; 0,15 del lado en que hay otro módulo (igual que las puertas).
 - `lsup`, `linf` y `lf` se definen por módulo, a partir del estilo de frente (ver 4.3 bis), y se pueden ajustar según el diseño (ej.: abajo a filo de la cajonera = 0).
 
 Ejemplo (cajonera de 34 de alto, 2 cajones con tirador, filo de 2 mm): (34 − 0,6 − 0,6 − 0,3) / 2 = 16,25 → 16,2 (redondeo hacia abajo) → se corta a 15,8 de alto (103,2 × 16,2 final → 102,8 × 15,8 de corte).
@@ -279,15 +284,17 @@ Alto puertas = H − lsup − linf − Σ altos de frentes de cajón − (cantid
 **Material de cada pieza:** el piso del cajón usa la placa elegida para el piso; laterales, contrafrente y frente interno, la placa de cajones del módulo; el frente visible, la placa de frentes.
 
 **d) Largo de la guía**
-Se propone la guía más larga disponible que entre en el módulo: el mayor largo comercial tal que largo + espacio adicional de la guía ≤ profundidad del módulo + tolerancia (0,5 cm: se acepta que la guía sobresalga hasta 5 mm). Los largos disponibles se cargan por tipo de guía (no siempre van de 5 en 5). El usuario puede cambiar la guía propuesta.
+Se propone la guía más larga disponible que entre en la caja: el mayor largo comercial tal que largo + espacio adicional de la guía ≤ profundidad de la caja (profundidad total − espesor de los frentes, ver 4.2) + tolerancia (0,5 cm: se acepta que la guía sobresalga hasta 5 mm). Los largos disponibles se cargan por tipo de guía (no siempre van de 5 en 5). El usuario puede cambiar la guía propuesta.
 
-| Profundidad | Telescópica (0,2) | Oculta Häfele / Eurohard (0,8) | Oculta Rincón del Herraje (1,1) |
+| Profundidad de la caja | Telescópica (0,2) | Oculta Häfele / Eurohard (0,8) | Oculta Rincón del Herraje (1,1) |
 |-------------|-------------------|--------------------------------|---------------------------------|
 | 50 | 50 | 45 | 45 |
 | 48 | 45 | 45 | 45 |
 | 40,5 | 40 | 40 | 35 |
 | 40 | 40 | 35 | 35 |
 | 37 | 35 | 35 | 35 |
+
+Ej.: con frentes de 18 mm, un módulo de 51,8 de profundidad tiene una caja de 50 y lleva guía de 50; uno de 50 tiene una caja de 48,2 y lleva guía de 45.
 
 **e) Alto del cajón**
 Todo se pide en un solo pedido. Los frentes se calculan exactos; el alto de la caja se carga estimado al diseñar (ej.: 12 cm) y las piezas de la caja (laterales, frente interno y contrafrente) se calculan con ese valor. Se puede corregir y recalcular.
@@ -322,13 +329,17 @@ Ejemplo: tramo de 180 × 55 → el sistema propone un zócalo de 180 × 53,5. Si
 - **RN-08.2** Usos habituales, como referencia (no se cargan solos): puertas con 2 mm alrededor; laterales vistos con 2 mm en un canto largo y uno corto; estructura, estantes, pisos y techos con 0,45 mm (estantes: solo el canto largo de adelante); vestidores mayormente todo en 2 mm.
 
 ### 4.6 Ejemplos de validación
-**Bajo mesada 90 × 75 × 55, sin techo, 1 estante, 2 pinos:**
+**Bajo mesada 90 × 75 × 55, sin techo, 1 estante, 2 pinos (sin frentes):**
 piso 90 × 55 · laterales 73,2 × 55 (×2) · estante 86,4 × 55 · pinos 86,4 (×2).
 
-**Módulo con techo 90 × 60 × 40, 1 estante, fondo, 2 puertas con filo de 2 mm:**
-piso y techo 90 × 40 (×2) · laterales 56,4 × 40 (×2) · estante 86,4 × 40 · fondo 59,7 × 89,7 (veta vertical por defecto; (90 − 0,3) × (60 − 0,3)) · puertas: final 59,2 × 44,5 → corte 58,8 × 44,1 con filo de 2 mm en los 4 cantos (×2), con veta vertical por defecto.
+**Bajo mesada 91 × 78 × 60 con 2 puertas de 18 mm:** la caja va de 58,2 → piso 91 × 58,2 · laterales 76,2 × 58,2 (×2) · estante 87,4 × 58,2.
 
-**Cajonera 60 × 34 × 50, fajas de luz de 10 cm, 2 cajones telescópicos con tirador, frentes con filo de 2 mm, caja estimada de 12:**
+**Dos módulos de 90 con 2 puertas, unidos:** el de la izquierda con luz derecha 0,15 y el de la derecha con luz izquierda 0,15 → puertas de (90 − 0,3 − 0,15 − 0,3) / 2 = 44,6 de ancho; entre los frentes de los dos módulos quedan 0,3.
+
+**Módulo con techo 90 × 60 × 40, 1 estante, fondo, 2 puertas con filo de 2 mm:**
+piso y techo 90 × 38,2 (×2) · laterales 56,4 × 38,2 (×2) · estante 86,4 × 38,2 · fondo 59,7 × 89,7 (veta vertical por defecto; (90 − 0,3) × (60 − 0,3)) · puertas: final 59,2 × 44,5 → corte 58,8 × 44,1 con filo de 2 mm en los 4 cantos (×2), con veta vertical por defecto.
+
+**Cajonera 60 × 34 × 51,8 (caja de 50), fajas de luz de 10 cm, 2 cajones telescópicos con tirador, frentes con filo de 2 mm, caja estimada de 12:**
 laterales 34 × 50 (×2) · fajas 56,4 × 10 (×4) · frentes final 59,4 × 16,2 → corte 59,0 × 15,8 (×2) · por cajón (guía de 50): laterales 50 × 12 (×2), contrafrente 50,1 × 12, frente interno 50,1 × 9, fondo de 5,5 mm 53,7 × 50.
 
 **Cajonera de 80 de alto con 3 cajones (luces 0,6 / 0,6, entre frentes 0,3; espacio para frentes 78,2):**
@@ -350,7 +361,7 @@ Los valores de cálculo se guardan en la base de datos y se pueden modificar sin
 
 | Parámetro | Valor por defecto |
 |-----------|-------------------|
-| Luz lateral de puertas y frentes de cajón (por lado) | 0,3 cm |
+| Luz lateral de puertas y frentes de cajón (por lado; valor inicial de cada módulo, 0,15 junto a otro) | 0,3 cm |
 | Luz entre puertas | 0,3 cm |
 | Tolerancia para que la guía sobresalga | 0,5 cm |
 | Retiro del zócalo (frente; a los costados lo aplica el usuario) | 1,5 cm |

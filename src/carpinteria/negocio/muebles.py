@@ -98,6 +98,9 @@ class ServicioMuebles:
     def muebles(self, id_trabajo: int) -> list[Mueble]:
         return self._repo.muebles(id_trabajo)
 
+    def mueble(self, id_mueble: int) -> Mueble | None:
+        return self._repo.mueble(id_mueble)
+
     def guardar_mueble(self, id_mueble: int | None, id_trabajo: int, nombre: str,
                        observaciones: str | None = None) -> int:
         self._controlar_trabajo(id_trabajo)
@@ -113,8 +116,15 @@ class ServicioMuebles:
     def modulos(self, id_mueble: int) -> list[ModuloGuardado]:
         return self._repo.modulos(id_mueble)
 
-    def proponer_largo_guia(self, id_guia: int, profundidad: Decimal) -> Decimal | None:
-        return motor.proponer_largo_guia(self._guia(id_guia), profundidad, self.reglas())
+    def proponer_largo_guia(self, id_guia: int, profundidad: Decimal,
+                            espesor_frentes: Decimal = Decimal("1.8")) -> Decimal | None:
+        """La guía va dentro de la caja: profundidad total menos el espesor de los frentes."""
+        return motor.proponer_largo_guia(self._guia(id_guia), profundidad - espesor_frentes, self.reglas())
+
+    def espesor_frentes(self, id_placa_frentes: int | None, id_placa: int | None) -> Decimal:
+        placas = self._placas()
+        placa = placas.get(id_placa_frentes) or placas.get(id_placa)
+        return placa.espesor if placa else Decimal("1.8")
 
     def _guia(self, id_guia: int) -> TipoGuia:
         guia = next((g for g in self._catalogo.guias() if g.id == id_guia), None)
@@ -153,12 +163,16 @@ class ServicioMuebles:
         if all(c.id_placa_piso in placas and placas[c.id_placa_piso].color
                and not placas[c.id_placa_piso].color.tiene_veta for c in m.cajones) and m.cajones:
             sin_veta.add(motor.Material.PISO_CAJON)
+        frentes = placas.get(m.id_placa_frentes) or estructura
         return motor.Modulo(
-            armado, m.ancho, m.alto, m.profundidad, estructura.espesor, m.lleva_techo, m.ancho_faja, m.estantes,
-            m.puertas, m.id_placa_fondo is not None, m.id_liston is not None, m.luz_superior, m.luz_inferior,
-            m.luz_entre_frentes,
-            tuple(motor.Cajon(self._guia(c.id_guia), c.largo_guia, c.alto_caja, c.alto_frente) for c in m.cajones),
-            frozenset(m.rotar), frozenset(sin_veta))
+            armado, m.ancho, m.alto, m.profundidad, espesor=estructura.espesor, lleva_techo=m.lleva_techo,
+            ancho_faja=m.ancho_faja, estantes=m.estantes, puertas=m.puertas,
+            lleva_fondo=m.id_placa_fondo is not None, lleva_pinos=m.id_liston is not None,
+            luz_superior=m.luz_superior, luz_inferior=m.luz_inferior, luz_entre_frentes=m.luz_entre_frentes,
+            cajones=tuple(motor.Cajon(self._guia(c.id_guia), c.largo_guia, c.alto_caja, c.alto_frente)
+                          for c in m.cajones),
+            rotar=frozenset(m.rotar), espesor_frentes=frentes.espesor,
+            luz_izquierda=m.luz_izquierda, luz_derecha=m.luz_derecha, sin_veta=frozenset(sin_veta))
 
     def previsualizar(self, m: ModuloGuardado) -> motor.Despiece:
         """Cálculo sin guardar, para ver las piezas mientras se carga el módulo."""
@@ -170,7 +184,8 @@ class ServicioMuebles:
         m = replace(m, nombre=_texto(m.nombre, "el nombre del módulo", 100, obligatorio=False))
         resultado = self.previsualizar(m)
         roles = self._material_por_rol(m)
-        sin_filo = self._sin_filo() if m.id_color_laca else None
+        # Frentes laqueados y listones (pinos) nacen «Sin filo»: no llevan.
+        sin_filo = self._sin_filo() if m.id_color_laca or any(p.medida_2 is None for p in resultado.piezas) else None
 
         generadas = []
         for p in resultado.piezas:
@@ -182,7 +197,7 @@ class ServicioMuebles:
             generadas.append(PiezaGuardada(
                 None, p.tipo, id_material, p.cantidad, p.medida_1, p.medida_2,
                 id_modulo=None if p.cajon else m.id, orden_cajon=p.cajon,
-                id_tipo_filo=sin_filo if laqueada else None,
+                id_tipo_filo=sin_filo if laqueada or p.medida_2 is None else None,
                 id_color_laca=m.id_color_laca if laqueada else None,
                 id_terminacion=m.id_terminacion if laqueada else None))
 
@@ -260,6 +275,19 @@ class ServicioMuebles:
     # ---------- piezas (RF-15 a RF-19) ----------
     def piezas_del_trabajo(self, id_trabajo: int) -> list[PiezaGuardada]:
         return self._repo.piezas_de_trabajo(id_trabajo)
+
+    def piezas_de_modulo(self, id_modulo: int) -> list[PiezaGuardada]:
+        return self._repo.piezas_de_modulo(id_modulo)
+
+    def piezas_de_zocalo(self, id_zocalo: int) -> list[PiezaGuardada]:
+        return self._repo.piezas_de_zocalo(id_zocalo)
+
+    def puede_modificarse(self, id_trabajo: int) -> bool:
+        try:
+            self._controlar_trabajo(id_trabajo)
+        except ErrorMuebles:
+            return False
+        return True
 
     def piezas_sin_filo(self, id_trabajo: int) -> list[PiezaGuardada]:
         """Las que todavía no tienen filo definido: bloquean el listado (RN-08.1)."""

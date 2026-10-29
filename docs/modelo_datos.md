@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 1.8 (tabla Modulo_Veta_Rotada, migración `10`; parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
+**Versión del documento:** 1.9 (luces laterales por módulo `luz_izquierda_mod` / `luz_derecha_mod`, migración `11`) · 1.8 (tabla Modulo_Veta_Rotada, migración `10`; parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -229,6 +229,8 @@ Estructura de melamina sobre la que apoyan los módulos. Pertenece al mueble por
 | luz_superior_mod | DECIMAL(5,2) | NN (luz arriba del primer frente; negativa = el frente sobresale) |
 | luz_inferior_mod | DECIMAL(5,2) | NN (luz abajo del último frente; 0 = a filo; negativa = sobresale, ej.: −1,3 en alacenas) |
 | luz_entre_frentes_mod | DECIMAL(5,2) | NN, ≥ 0 (0,3 con tirador; 3 con gola; según diseño) |
+| luz_izquierda_mod | DECIMAL(5,2) | NN, ≥ 0, DF 0,3 (0,15 si a ese lado hay otro módulo) |
+| luz_derecha_mod | DECIMAL(5,2) | NN, ≥ 0, DF 0,3 (ídem) |
 
 > **Materiales del módulo:** la estructura usa `id_placa`; puertas y frentes de cajón usan `id_placa_frentes` (ej.: módulo blanco con frentes de color, enchapados, o cortados de crudo para laquear); la caja de los cajones usa `id_placa_cajones` (puede ser blanca aunque el mueble sea de color). Son valores por defecto: cada pieza guarda su propio material y se puede cambiar.
 > Si `id_color_laca_frentes` tiene valor, las puertas y frentes de cajón se generan laqueados y sin filo.
