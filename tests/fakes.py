@@ -512,7 +512,12 @@ class MueblesEnMemoria:
         del self.zocalos_[i]
 
     def _con_orden(self, p):
-        return replace(p, orden_cajon=self.cajones_[p.id_cajon][1]) if p.id_cajon else p
+        if p.id_cajon:
+            id_modulo, orden = self.cajones_[p.id_cajon]
+            return replace(p, orden_cajon=orden, veces=self.modulos_[id_modulo].cantidad)
+        if p.id_modulo:
+            return replace(p, veces=self.modulos_[p.id_modulo].cantidad)
+        return p
 
     def piezas_de_modulo(self, i):
         ids = {c for c, (mod, _) in self.cajones_.items() if mod == i}

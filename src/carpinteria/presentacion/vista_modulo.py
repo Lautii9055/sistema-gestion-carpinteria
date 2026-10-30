@@ -52,7 +52,7 @@ def _borrador_nuevo(app: Aplicacion, id_mueble: int) -> dict:
             "id_placa": placas[0][0] if placas else "", "id_placa_frentes": "", "id_placa_cajones": "",
             "id_placa_fondo": de_55[0][0] if de_55 else (placas[0][0] if placas else ""),
             "id_liston": str(listones[0].id) if listones else "",
-            "id_color_laca": "", "id_terminacion": "", "rotar": set()}
+            "id_color_laca": "", "id_terminacion": "", "rotar": set(), "cantidad": 1}
 
 
 def _luz_costado(app: Aplicacion) -> str:
@@ -86,7 +86,7 @@ def _borrador_de(m: ModuloGuardado) -> dict:
             "id_placa_frentes": str(m.id_placa_frentes or ""), "id_placa_cajones": str(m.id_placa_cajones or ""),
             "id_placa_fondo": str(m.id_placa_fondo or ""), "id_liston": str(m.id_liston or ""),
             "id_color_laca": str(m.id_color_laca or ""), "id_terminacion": str(m.id_terminacion or ""),
-            "rotar": set(m.rotar)}
+            "rotar": set(m.rotar), "cantidad": m.cantidad}
 
 
 def _id(valor: str) -> int | None:
@@ -117,7 +117,7 @@ def a_modulo(b: dict) -> ModuloGuardado:
         estantes=0 if cajonera else b["estantes"], puertas=0 if cajonera else b["puertas"],
         luz_superior=luz(b["luz_superior"], "la luz superior"), luz_inferior=luz(b["luz_inferior"], "la luz inferior"),
         luz_entre_frentes=leer_decimal(b["luz_entre"] or "0", "la luz entre frentes", Decimal(0), Decimal(10)),
-        cajones=cajones, rotar=frozenset(b["rotar"]),
+        cajones=cajones, rotar=frozenset(b["rotar"]), cantidad=b.get("cantidad", 1),
         luz_izquierda=leer_decimal(b["luz_izquierda"] or "0", "la luz izquierda", Decimal(0), Decimal(10)),
         luz_derecha=leer_decimal(b["luz_derecha"] or "0", "la luz derecha", Decimal(0), Decimal(10)))
 
@@ -491,11 +491,21 @@ def _paso_materiales(app: Aplicacion, b: dict, refrescar, d: Despiece | None) ->
     return "¿De qué material?", controles
 
 
-def _paso_revisar(app: Aplicacion, b: dict, d: Despiece | None, error: str | None) -> tuple[str, list[ft.Control]]:
+def _paso_revisar(app: Aplicacion, b: dict, d: Despiece | None, error: str | None,
+                  refrescar) -> tuple[str, list[ft.Control]]:
     p = app.paleta
     if error or d is None:
         return "Revisá antes de guardar", [tema.aviso(error or "Faltan datos.", p)]
-    controles: list[ft.Control] = []
+    veces = b.get("cantidad", 1)
+    controles: list[ft.Control] = [
+        ft.Container(ft.Column([
+            _contador(app, b, "cantidad", "Cantidad de módulos iguales", refrescar, maximo=50),
+            _ayuda(p, "Si hay varios módulos idénticos, cargás uno solo: las piezas se multiplican en el listado "
+                      "y los filos se definen una vez para todos."),
+        ], spacing=6), padding=ft.Padding.all(14), border_radius=12, bgcolor=p.superficie_alta),
+    ]
+    if b["cantidad"] < 1:
+        b["cantidad"] = 1
     if b["puertas"] or b["cajones"]:
         controles.append(_ayuda(p, f"Luces: arriba {b['luz_superior'] or 0} · abajo {b['luz_inferior'] or 0} · "
                                    f"entre {b['luz_entre'] or 0} · izquierda {b['luz_izquierda'] or 0} · "
@@ -512,15 +522,19 @@ def _paso_revisar(app: Aplicacion, b: dict, d: Despiece | None, error: str | Non
             vertical = (x.tipo in VETA_VERTICAL) != (x.tipo in b["rotar"])
             veta = "liso (se puede rotar)" if not x.con_veta else ("veta ↕ (en el alto)" if vertical
                                                                    else "veta ↔ (a lo largo)")
+            cuantas = f"{x.tipo} × {x.cantidad}" + (f" → ×{x.cantidad * veces}" if veces > 1 else "")
             controles.append(ft.Row([
-                ft.Text(f"{x.tipo} × {x.cantidad}{donde}", size=15, font_family=SANS_MEDIA, color=p.texto, expand=True),
+                ft.Text(f"{cuantas}{donde}", size=15, font_family=SANS_MEDIA, color=p.texto, expand=True),
                 ft.Text(medidas, size=15, color=p.texto),
                 ft.Text(veta if x.medida_2 is not None else "", size=12, color=p.texto_tenue, width=160,
                         text_align=ft.TextAlign.RIGHT),
             ], spacing=10))
     controles.append(_ayuda(p, "Medidas finales (con el filo incluido). Los filos se definen al guardar, en "
                                "«Piezas y filos»; ahí también se ve la medida de corte."))
-    return f"{sum(x.cantidad for x in d.piezas)} piezas", controles
+    por_modulo = sum(x.cantidad for x in d.piezas)
+    if veces > 1:
+        return f"{por_modulo} piezas por módulo · {por_modulo * veces} en total", controles
+    return f"{por_modulo} piezas", controles
 
 
 # ---------- pantalla ----------
@@ -584,7 +598,7 @@ def construir(app: Aplicacion, id_mueble: int, id_modulo: int | None) -> ft.Cont
     elif paso == 4:
         titulo, controles = _paso_materiales(app, b, refrescar, d)
     else:
-        titulo, controles = _paso_revisar(app, b, d, error)
+        titulo, controles = _paso_revisar(app, b, d, error, refrescar)
 
     caja_error = ft.Container(content=tema.aviso(error, p) if error and paso in (2, 3, 4) else None,
                               visible=bool(error) and paso in (2, 3, 4))
@@ -635,7 +649,8 @@ def construir(app: Aplicacion, id_mueble: int, id_modulo: int | None) -> ft.Cont
     if paso < len(PASOS) - 1:
         botones.append(tema.boton_principal(f"Siguiente: {PASOS[paso + 1].lower()} →", p, siguiente, expand=True))
     else:
-        botones.append(tema.boton_principal("Guardar módulo", p, guardar, expand=True, disabled=d is None))
+        texto = f"Guardar {b['cantidad']} módulos iguales" if b.get("cantidad", 1) > 1 else "Guardar módulo"
+        botones.append(tema.boton_principal(texto, p, guardar, expand=True, disabled=d is None))
 
     panel = componentes.tarjeta(ft.Column([
         tema.etiqueta_superior(f"Paso {paso + 1} de {len(PASOS)}", p),

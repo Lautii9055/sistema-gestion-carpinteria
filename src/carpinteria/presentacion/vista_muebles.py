@@ -249,7 +249,8 @@ def _tarjeta_mueble(app: Aplicacion, id_trabajo: int, mueble: Mueble, sueltas, e
     filas: list[ft.Control] = []
     for i, m in enumerate(modulos or [], 1):
         piezas, _ = app.ejecutar(app.muebles.piezas_de_modulo, m.id)
-        filas.append(_fila(app, f"M{i}", m.nombre or f"Módulo {i}", resumen_modulo(m), _estado_filos(app, piezas or []),
+        nombre = (m.nombre or f"Módulo {i}") + (f"  ×{m.cantidad}" if m.cantidad > 1 else "")
+        filas.append(_fila(app, f"M{i}", nombre, resumen_modulo(m), _estado_filos(app, piezas or []),
                            lambda m=m: app.ir_a("modulo", id_mueble=mueble.id, id_modulo=m.id),
                            lambda m=m: _eliminar(app, id_trabajo, app.muebles.eliminar_modulo, m.id,
                                                  f"el módulo {m.nombre or ''}".strip()), editable,
@@ -306,7 +307,7 @@ def construir_seccion(app: Aplicacion, id_trabajo: int) -> list[ft.Control]:
     faltan = sum(1 for x in piezas if x.id_tipo_filo is None)
     cabecera = ft.Row([
         ft.Column([tema.titulo("Muebles y módulos", p, 30),
-                   ft.Text(f"{sum(x.cantidad for x in piezas)} piezas"
+                   ft.Text(f"{sum(x.total for x in piezas)} piezas"
                            + (f" · {faltan} fila{'s' if faltan != 1 else ''} sin filo definido" if faltan else "")
                            if piezas else "Cargá cada mueble y sus módulos: el sistema calcula las piezas.",
                            size=14, color=p.error_texto if faltan else p.texto_tenue)], spacing=0, expand=True),

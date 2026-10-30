@@ -367,6 +367,7 @@ class ModuloGuardado:
     rotar: frozenset[str] = frozenset()    # tipos de pieza con la veta rotada
     luz_izquierda: Decimal = Decimal("0.3")   # costados de puertas y frentes; 0,15 junto a otro módulo
     luz_derecha: Decimal = Decimal("0.3")
+    cantidad: int = 1                      # módulos iguales: se cargan una vez y se multiplican las piezas
 
 
 @dataclass(frozen=True)
@@ -419,3 +420,9 @@ class PiezaGuardada:
     id_terminacion: int | None = None
     descripcion: str | None = None
     editada: bool = False
+    veces: int = 1                    # cantidad de módulos iguales del dueño (solo lectura)
+
+    @property
+    def total(self) -> int:
+        """Piezas a cortar: la cantidad de la fila por la cantidad de módulos iguales."""
+        return self.cantidad * self.veces

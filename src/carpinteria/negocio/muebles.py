@@ -26,6 +26,8 @@ ESTADOS_SIN_CAMBIOS = (INSTALADO, COBRADO, CANCELADO)
 TIPOS_SUELTOS = ("Ajuste", "Otra")
 
 
+MAXIMO_MODULOS_IGUALES = 50
+
 class ErrorMuebles(ErrorAutenticacion):
     """Error de validación de muebles y piezas; se muestra tal cual."""
 
@@ -182,6 +184,8 @@ class ServicioMuebles:
         """Guarda (o recalcula) el módulo y sus piezas. Devuelve (id, avisos para revisar)."""
         self._mueble_editable(m.id_mueble)
         m = replace(m, nombre=_texto(m.nombre, "el nombre del módulo", 100, obligatorio=False))
+        if not 1 <= m.cantidad <= MAXIMO_MODULOS_IGUALES:
+            raise ErrorMuebles(f"La cantidad de módulos iguales va de 1 a {MAXIMO_MODULOS_IGUALES}.")
         resultado = self.previsualizar(m)
         roles = self._material_por_rol(m)
         # Frentes laqueados y listones (pinos) nacen «Sin filo»: no llevan.

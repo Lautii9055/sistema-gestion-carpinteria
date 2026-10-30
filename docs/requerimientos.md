@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 3.1 (profundidad de la caja = profundidad − espesor de los frentes: 4.2 y 4.4 d; luces laterales por módulo, 0,15 junto a otro módulo: 4.3 y 4.4 c; pantalla de piezas y filos: RF-15.4) · 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
+**Versión del documento:** 3.2 (módulos iguales: RF-14.2) · 3.1 (profundidad de la caja = profundidad − espesor de los frentes: 4.2 y 4.4 d; luces laterales por módulo, 0,15 junto a otro módulo: 4.3 y 4.4 c; pantalla de piezas y filos: RF-15.4) · 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -122,6 +122,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
   - **Módulo:** se continúa con medidas, materiales, techo, estantes, fondo, pinos, puertas y cajones.
   - **Cajonera:** se pregunta si las fajas van de luz o si los laterales van de luz, y el ancho de las fajas (10 o 12 cm habitualmente); luego medidas, materiales y cajones. Una cajonera no lleva techo, estantes, puertas ni pinos.
   - En ambos casos, el asistente pregunta el estilo de frente, completa las luces y permite modificarlas.
+- **RF-14.2** **Módulos iguales:** un módulo se carga una sola vez con la cantidad de módulos idénticos (1 a 50), en el último paso del asistente. Sus piezas se guardan para un módulo y se multiplican en el listado de corte (ej.: «Lateral ×2 → ×6» con 3 módulos); los filos se definen una vez para todos. En el trabajo el módulo se ve con «×3».
 - **RF-15** Cada pieza tiene asignado un tipo de filo (sin filo, 0,45 mm o 2 mm) e indica cuáles de sus 4 cantos lo llevan. El sistema **no carga filos por defecto** (un filo de más es un costo): el usuario define el filo de cada pieza según los cantos que queden a la vista (ver RN-08).
 - **RF-15.1** El filo es, por defecto, del mismo color que la pieza. Opcionalmente se puede indicar otro color.
 - **RF-15.2** Una pieza puede laquearse, indicando el color de laca (código de marcas como Alba o Sherwin Williams) y la terminación (mate, semimate, brillante), que es obligatoria. Habitualmente se laquean solo los frentes, mientras la estructura queda en el color de la placa. Las piezas a laquear pueden cortarse de placa cruda o de color. Las piezas laqueadas no llevan filo: al marcar una pieza como laqueada, el sistema le asigna "sin filo" automáticamente.

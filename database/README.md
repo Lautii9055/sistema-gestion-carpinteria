@@ -43,6 +43,7 @@ Si la base ya estaba creada, ejecutar además, en orden, las migraciones que fal
 | `09_migracion_descuento_fondo.sql` | Agrega el parámetro `descuento_fondo` (0,3 cm): el fondo mide (ancho − 0,3) × (alto − 0,3) |
 | `10_migracion_veta_rotada.sql` | Tabla `Modulo_Veta_Rotada`: tipos de pieza con la veta rotada en cada módulo (se respeta al recalcular) |
 | `11_migracion_luces_laterales.sql` | Columnas `luz_izquierda_mod` y `luz_derecha_mod` en `Modulo` (0,3 por defecto; 0,15 junto a otro módulo) |
+| `12_migracion_cantidad_modulos.sql` | Columna `cantidad_mod` en `Modulo`: módulos iguales cargados una sola vez (1 a 50) |
 
 `01_tablas.sql` es re-ejecutable: borra las tablas y las vuelve a crear (se pierden los datos). Después hay que volver a correr 02, 03, 04 y 05.
 

@@ -234,7 +234,9 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
             content=ft.Row([
                 ft.Checkbox(value=elegida, active_color=p.acento, check_color=p.sobre_acento,
                             on_change=lambda _, x=x: elegir(x, True), visible=editable),
-                ft.Column([ft.Text(f"{x.descripcion or x.tipo} × {x.cantidad}", size=15, font_family=SANS_MEDIA,
+                ft.Column([ft.Text(f"{x.descripcion or x.tipo} × {x.cantidad}"
+                                   + (f"  (×{x.veces} módulos = {x.total})" if x.veces > 1 else ""),
+                                   size=15, font_family=SANS_MEDIA,
                                    color=p.texto),
                            ft.Text(f"{_medidas(x)} · {datos.material(x)}", size=12, color=p.texto_tenue)],
                           spacing=0, expand=True),
@@ -249,8 +251,9 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
         subtitulo, grupos = piezas_actuales()
         todas = [x for _, lista in grupos for x in lista]
         faltan = sum(1 for x in todas if datos.estado(x)[1])
-        resumen.value = (f"{sum(x.cantidad for x in todas)} piezas · faltan {faltan} fila{'s' if faltan != 1 else ''}"
-                         if faltan else f"{sum(x.cantidad for x in todas)} piezas · todos los filos definidos ✓")
+        total = sum(x.total for x in todas)
+        resumen.value = (f"{total} piezas · faltan {faltan} fila{'s' if faltan != 1 else ''}"
+                         if faltan else f"{total} piezas · todos los filos definidos ✓")
         resumen.color = p.error_texto if faltan else p.exito
         controles: list[ft.Control] = [ft.Text(subtitulo, size=13, color=p.texto_tenue)]
         if not todas:
@@ -485,7 +488,8 @@ def _dialogo(app: Aplicacion, titulo: str, controles: list[ft.Control], accion) 
 def _dialogo_dividir(app: Aplicacion, x: PiezaGuardada, actualizar) -> None:
     p = app.paleta
     cantidad = tema.campo("Cuántas separar", p, value="1", autofocus=True, input_filter=ft.NumbersOnlyInputFilter(),
-                          helper=f"Entre 1 y {x.cantidad - 1}: quedan en otra fila para darles otro filo")
+                          helper=f"Entre 1 y {x.cantidad - 1}: quedan en otra fila para darles otro filo"
+                          + (f" (por módulo: vale para los {x.veces} módulos iguales)" if x.veces > 1 else ""))
 
     def guardar() -> str | None:
         _, error = app.ejecutar(app.muebles.dividir_fila, x.id, int(cantidad.value or 0))
@@ -499,7 +503,8 @@ def _dialogo_dividir(app: Aplicacion, x: PiezaGuardada, actualizar) -> None:
 
 def _dialogo_editar(app: Aplicacion, x: PiezaGuardada, actualizar) -> None:
     p = app.paleta
-    cantidad = tema.campo("Cantidad", p, value=str(x.cantidad), input_filter=ft.NumbersOnlyInputFilter())
+    cantidad = tema.campo("Cantidad por módulo" if x.veces > 1 else "Cantidad", p, value=str(x.cantidad),
+                          input_filter=ft.NumbersOnlyInputFilter())
     m1 = tema.campo("Medida 1 (cm)", p, value=_f(x.medida_1), input_filter=FILTRO_NUMERO,
                     helper="En el sentido de la veta")
     m2 = tema.campo("Medida 2 (cm)", p, value=_f(x.medida_2) if x.medida_2 is not None else "",

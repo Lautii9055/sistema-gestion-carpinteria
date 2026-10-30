@@ -260,3 +260,22 @@ def test_largo_de_guia_propuesto_por_la_caja(taller):
     taller["catalogo"].guias_[1] = replace(guia, largos=(D(40), D(45), D(50)))
     assert taller["servicio"].proponer_largo_guia(1, D("51.8")) == D(50)
     assert taller["servicio"].proponer_largo_guia(1, D(50)) == D(45)
+
+
+def test_modulos_iguales_multiplican_las_piezas(taller):
+    t = taller
+    caj = CajonGuardado(None, 1, t["placas"]["blanco55"], D(12), D(50))
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t, cantidad=3, profundidad=D("51.8"), puertas=0,
+                                                        cajones=(caj,), luz_superior=D(0), luz_inferior=D(0)))
+    piezas = _piezas(t, id_modulo)
+    lateral = piezas[("Lateral", None)]
+    assert (lateral.cantidad, lateral.veces, lateral.total) == (2, 3, 6)
+    assert piezas[("Lateral de cajón", 1)].total == 6                 # las del cajón también
+    assert t["repo"].modulo(id_modulo).cantidad == 3
+    assert sum(p.total for p in t["servicio"].piezas_del_trabajo(t["id_trabajo"])) == \
+        3 * sum(p.cantidad for p in t["repo"].piezas_de_modulo(id_modulo))
+
+
+def test_cantidad_de_modulos_fuera_de_rango(taller):
+    with pytest.raises(ErrorMuebles, match="de 1 a 50"):
+        taller["servicio"].guardar_modulo(_modulo(taller, cantidad=0))

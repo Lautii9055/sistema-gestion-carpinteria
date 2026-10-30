@@ -437,6 +437,8 @@ CREATE TABLE dbo.Modulo (
     -- Costados de puertas y frentes: 0,3; junto a otro módulo 0,15 (entre los dos suman 0,3).
     luz_izquierda_mod           DECIMAL(5,2)  NOT NULL CONSTRAINT DF_Modulo_luz_izquierda DEFAULT (0.3),
     luz_derecha_mod             DECIMAL(5,2)  NOT NULL CONSTRAINT DF_Modulo_luz_derecha DEFAULT (0.3),
+    -- Módulos iguales: se cargan una vez; el listado multiplica sus piezas.
+    cantidad_mod                INT           NOT NULL CONSTRAINT DF_Modulo_cantidad DEFAULT (1),
     CONSTRAINT PK_Modulo PRIMARY KEY (id_modulo),
     CONSTRAINT FK_Modulo_Mueble           FOREIGN KEY (id_mueble)        REFERENCES dbo.Mueble (id_mueble) ON DELETE CASCADE,
     CONSTRAINT FK_Modulo_Tipo_Armado      FOREIGN KEY (id_tipo_armado)   REFERENCES dbo.Tipo_Armado (id_tipo_armado),
@@ -453,6 +455,7 @@ CREATE TABLE dbo.Modulo (
     CONSTRAINT CK_Modulo_cantidades CHECK (cantidad_estantes_mod >= 0 AND cantidad_puertas_mod >= 0),
     CONSTRAINT CK_Modulo_luz_entre  CHECK (luz_entre_frentes_mod >= 0),
     CONSTRAINT CK_Modulo_luz_costados CHECK (luz_izquierda_mod >= 0 AND luz_derecha_mod >= 0),
+    CONSTRAINT CK_Modulo_cantidad   CHECK (cantidad_mod BETWEEN 1 AND 50),
     -- Laca y terminación van juntas: las dos cargadas o las dos vacías.
     CONSTRAINT CK_Modulo_laca_terminacion CHECK (
         (id_color_laca_frentes IS NULL AND id_terminacion_laca_frentes IS NULL)
