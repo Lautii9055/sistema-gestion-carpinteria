@@ -135,7 +135,7 @@ def test_texto_de_reglas_de_la_telescopica(catalogo):
     _, repo = catalogo
     reglas = [texto_regla(p) for p in repo.guias_[1].piezas]
     assert reglas == ["2 × largo guía × alto cajón", "1 × (ancho interior − 6,3) × alto cajón",
-                      "1 × (ancho interior − 6,3) × (alto cajón − 3)", "1 × (ancho interior − 2,7) × largo guía"]
+                      "1 × (ancho interior − 6,3) × (alto cajón − 3)", "1 × (ancho interior − 3) × (largo guía − 0,3)"]
 
 
 def test_guia_en_uso_no_se_elimina(catalogo):

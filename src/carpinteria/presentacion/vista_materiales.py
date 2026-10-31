@@ -331,22 +331,32 @@ def _vista_placas(app: Aplicacion, estado: dict) -> list[ft.Control]:
                                          "Cargá las placas que usan: marca, color, espesor y medida de la placa entera.",
                                          p, componentes.boton_con_icono("Nueva placa", ft.Icons.ADD, p,
                                                                         lambda _: _dialogo_placa(app)))]
-    filas = []
-    for pl in placas:
-        c = pl.color
-        activa = pl.es_activo and c.es_activo and c.marca_activa
-        filas.append(_fila(
-            app, _insignia(app, formato_numero(pl.espesor_mm), "mm"), c.descripcion,
-            f"{c.marca} · placa {formato_numero(pl.largo)} × {formato_numero(pl.ancho)} cm",
-            _etiquetas(app, activa, pl.en_uso, c.tiene_veta),
-            _acciones(app, pl.es_activo, pl.en_uso, lambda pl=pl: _dialogo_placa(app, pl),
-                      lambda pl=pl: _cambiar_estado(app, app.materiales.cambiar_estado_placa, pl.id,
-                                                    not pl.es_activo, "Placa"),
-                      lambda pl=pl: _confirmar_eliminar(app, f"la placa {c.descripcion} "
-                                                             f"{formato_numero(pl.espesor_mm)} mm",
-                                                        app.materiales.eliminar_placa, pl.id)),
-            activa))
+    # Separadas por espesor (18 mm, 15 mm, 5,5 mm…), de la más gruesa a la más fina.
+    filas: list[ft.Control] = []
+    espesores = sorted({pl.espesor_mm for pl in placas}, reverse=True)
+    for espesor in espesores:
+        del_espesor = [pl for pl in placas if pl.espesor_mm == espesor]
+        filas.append(ft.Container(
+            ft.Row([tema.etiqueta_superior(f"{formato_numero(espesor)} mm", p),
+                    ft.Text(f"{len(del_espesor)} placa{'s' if len(del_espesor) != 1 else ''}", size=13,
+                            color=p.texto_tenue)], spacing=10),
+            padding=ft.Padding.only(top=8 if filas else 0)))
+        filas += [_fila_placa(app, pl) for pl in del_espesor]
     return filas
+
+
+def _fila_placa(app: Aplicacion, pl) -> ft.Control:
+    c = pl.color
+    activa = pl.es_activo and c.es_activo and c.marca_activa
+    return _fila(
+        app, _insignia(app, formato_numero(pl.espesor_mm), "mm"), c.descripcion,
+        f"{c.marca} · placa {formato_numero(pl.largo)} × {formato_numero(pl.ancho)} cm",
+        _etiquetas(app, activa, pl.en_uso, c.tiene_veta),
+        _acciones(app, pl.es_activo, pl.en_uso, lambda: _dialogo_placa(app, pl),
+                  lambda: _cambiar_estado(app, app.materiales.cambiar_estado_placa, pl.id, not pl.es_activo, "Placa"),
+                  lambda: _confirmar_eliminar(app, f"la placa {c.descripcion} {formato_numero(pl.espesor_mm)} mm",
+                                              app.materiales.eliminar_placa, pl.id)),
+        activa)
 
 
 # ---------- listones ----------

@@ -4,7 +4,7 @@ Reglas:
 - Cualquier usuario puede dar de alta a otro, blanquear su contraseña, darlo de
   baja o reactivarlo (no hay roles: son dos personas de confianza).
 - Nadie puede darse de baja ni blanquearse a sí mismo (para eso está "Mi
-  contraseña"), y siempre tiene que quedar al menos un usuario activo: sino,
+  contraseña"), y siempre tiene que quedar al menos un usuario activo: si no,
   nadie podría volver a entrar.
 - Las contraseñas provisorias las genera el sistema al azar, se muestran una
   sola vez y obligan a cambiarlas en el primer ingreso.

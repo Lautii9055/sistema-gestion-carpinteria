@@ -358,7 +358,7 @@ class CatalogoEnMemoria:
         tele = (PiezaGuia(10, "Lateral de cajón", 2, None, D("0.0"), D("0.0")),
                 PiezaGuia(11, "Contrafrente de cajón", 1, D("6.3"), None, D("0.0")),
                 PiezaGuia(12, "Frente interno de cajón", 1, D("6.3"), None, D("3.0")),
-                PiezaGuia(13, "Piso de cajón", 1, D("2.7"), D("0.0"), None))
+                PiezaGuia(13, "Piso de cajón", 1, D("3.0"), D("0.3"), None))
         oculta = (PiezaGuia(13, "Piso de cajón", 1, D("7.5"), D("0.9"), None),)
         self.guias_ = {1: TipoGuia(1, "Telescópica cierre suave", None, D("0.2"), piezas=tele),
                        2: TipoGuia(2, "Lateral oculto Eurohard", "Eurohard", D("0.8"), piezas=oculta)}
@@ -514,7 +514,8 @@ class MueblesEnMemoria:
     def _con_orden(self, p):
         if p.id_cajon:
             id_modulo, orden = self.cajones_[p.id_cajon]
-            return replace(p, orden_cajon=orden, veces=self.modulos_[id_modulo].cantidad)
+            modulo = self.modulos_[id_modulo]
+            return replace(p, orden_cajon=orden, veces=modulo.cantidad, id_guia_cajon=modulo.cajones[orden - 1].id_guia)
         if p.id_modulo:
             return replace(p, veces=self.modulos_[p.id_modulo].cantidad)
         return p

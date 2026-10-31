@@ -24,6 +24,7 @@ En el taller, las medidas de cada pieza se calculan a mano a partir de las medid
 | Interfaz gráfica | Python + [Flet](https://flet.dev) |
 | Lógica de negocio | Python |
 | Acceso a datos | pyodbc (ODBC Driver 18) |
+| Listados PDF | fpdf2 |
 | Base de datos | SQL Server Express |
 | Pruebas | pytest |
 

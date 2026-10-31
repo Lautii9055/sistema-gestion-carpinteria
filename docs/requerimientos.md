@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Documento de Requerimientos
 
-**Versión del documento:** 3.2 (módulos iguales: RF-14.2) · 3.1 (profundidad de la caja = profundidad − espesor de los frentes: 4.2 y 4.4 d; luces laterales por módulo, 0,15 junto a otro módulo: 4.3 y 4.4 c; pantalla de piezas y filos: RF-15.4) · 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
+**Versión del documento:** 3.9 (cajoneras con piso y 2 fajas arriba: RN-04) · 3.8 (piso del cajón con telescópica: 5,5 mm, 0,3 menos que la caja, sin filo: 4.4 a, RN-08.4) · 3.7 (piso del cajón con guía oculta sin filo: RN-08.4) · 3.6 (los fondos nunca llevan filo: RN-08.3) · 3.5 (filos con opciones de cantos y separar filas con nombre: RF-15.5, RF-15.3) · 3.4 (asistente: materiales y largos de guía solo del catálogo, errores al instante y sin avanzar con errores: RF-14.3) · 3.3 (listados en PDF: RF-21.1) · 3.2 (módulos iguales: RF-14.2) · 3.1 (profundidad de la caja = profundidad − espesor de los frentes: 4.2 y 4.4 d; luces laterales por módulo, 0,15 junto a otro módulo: 4.3 y 4.4 c; pantalla de piezas y filos: RF-15.4) · 3.0 (veta: RN-02 y RN-02.1; fondo (A − 0,3) × (H − 0,3); piso de cajón con guía oculta: largo guía − 0,9; catálogo: RF-11.1 precisado, RF-11.2; baja de clientes con trabajos: RF-04.1; flujo de estados y cobros: RF-25.1, RF-25.2; fecha de presupuesto editable: RF-26.1, RF-26.2; entrega pactada: RF-26.4)
 **Autor:** Lautaro Zanino
 **Estado:** Aprobado para diseño
 
@@ -122,6 +122,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
   - **Módulo:** se continúa con medidas, materiales, techo, estantes, fondo, pinos, puertas y cajones.
   - **Cajonera:** se pregunta si las fajas van de luz o si los laterales van de luz, y el ancho de las fajas (10 o 12 cm habitualmente); luego medidas, materiales y cajones. Una cajonera no lleva techo, estantes, puertas ni pinos.
   - En ambos casos, el asistente pregunta el estilo de frente, completa las luces y permite modificarlas.
+- **RF-14.3** En el asistente, todo material se elige de lo cargado en Materiales (placas de cualquier espesor, listones, estilos de frente, guías, lacas y terminaciones; los filos, en «Piezas y filos»): nada se escribe a mano. El **largo de la guía** es un desplegable con los largos cargados de esa guía que entran en la caja (se propone el más largo); si la guía no tiene largos, el sistema lo avisa y ofrece ir a Materiales › Guías sin perder lo cargado. Los errores aparecen **mientras se escribe**, sin esperar a cambiar de campo, y mientras haya uno **no se puede seguir** al paso siguiente ni guardar: el botón queda apagado hasta resolverlo.
 - **RF-14.2** **Módulos iguales:** un módulo se carga una sola vez con la cantidad de módulos idénticos (1 a 50), en el último paso del asistente. Sus piezas se guardan para un módulo y se multiplican en el listado de corte (ej.: «Lateral ×2 → ×6» con 3 módulos); los filos se definen una vez para todos. En el trabajo el módulo se ve con «×3».
 - **RF-15** Cada pieza tiene asignado un tipo de filo (sin filo, 0,45 mm o 2 mm) e indica cuáles de sus 4 cantos lo llevan. El sistema **no carga filos por defecto** (un filo de más es un costo): el usuario define el filo de cada pieza según los cantos que queden a la vista (ver RN-08).
 - **RF-15.1** El filo es, por defecto, del mismo color que la pieza. Opcionalmente se puede indicar otro color.
@@ -131,6 +132,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
   - **Aplicar a varias piezas:** se seleccionan varias filas (ej.: todos los estantes) y se les asigna el mismo filo de una sola vez.
   - **Dividir una fila:** si una o más piezas de una fila llevan un filo distinto (ej.: de dos laterales, uno es visto), se separan en una fila nueva con su propia cantidad y su propio filo. La fila original reduce su cantidad.
 - **RF-15.4** Pantalla **Piezas y filos**: se abre al guardar un módulo, desde la etiqueta «N sin filo» o el botón «Filos» de cada módulo o zócalo, y desde «Piezas y filos» del trabajo (todas sus piezas). La pieza se dibuja con la medida 1 (sentido de la veta) en horizontal; se toca cada canto para ponerle o sacarle filo, se elige el tipo y el color del filo, y se ve al instante la medida de corte. Al aplicar, pasa a la siguiente pieza que falte. Desde ahí también se rota la veta, se separa una fila, se editan medidas y se laquea. Los listones (pinos) nacen «sin filo».
+- **RF-15.5** El filo se define en dos pasos, con opciones fijas (sin marcar canto por canto): **1)** el tipo de filo (sin filo, 0,45 mm, 2 mm…); **2)** qué cantos lo llevan: **1 largo**, **2 largos**, **1 corto**, **2 cortos**, **1 largo y 1 corto** o **los 4 cantos**. Largo es el canto del lado más largo de la pieza; al aplicar el mismo patrón a varias filas, los cantos se calculan en cada una según sus medidas. La lista muestra el resultado («✓ 2 mm · 2 largos»). Al **separar** una fila, la nueva puede llevar un nombre (ej.: «Lateral visto»), queda marcada y el sistema confirma qué quedó en cada fila; las filas tocadas a mano dicen «editada a mano».
 - **RF-16** Se puede duplicar un módulo, un mueble o un trabajo anterior como base para uno nuevo.
 
 ### M5 — Despiece automático
@@ -141,6 +143,7 @@ La PC donde se va a instalar todavía no está definida. Los requerimientos no d
 
 ### M6 — Listado de corte
 - **RF-21** Genera un PDF imprimible con todas las piezas de un trabajo. Requiere que todas las piezas tengan el filo definido (RN-08.1).
+- **RF-21.1** Desde el detalle del trabajo, el botón «Listados» ofrece tres PDF: **para la maderera** (solo medidas de corte, sin filo: cortan a esa medida y después aplican el filo; columnas «Largo» y «Ancho», sin el nombre de las piezas, con una columna de observaciones: liso, color de filo distinto, para laquear), **para el taller** (control interno: «Largo final» y «Ancho final» con filo, «Largo» y «Ancho» de corte, y el nombre de cada pieza) y **para el laqueador** (solo si hay piezas laqueadas; medidas finales y placa, sin el nombre de las piezas). El largo es siempre el sentido de la veta. Se generan y se guardan en `Documentos\Carpintería Zanino\Listados` como «Trabajo N - descripción - Listado de corte.pdf», con la opción de abrirlo. Si faltan filos, el sistema dice cuáles y lleva a «Piezas y filos». Encabezado: los PDF para la maderera y el laqueador llevan solo el número de trabajo y la fecha (sin datos del cliente); el del taller suma descripción, cliente y obra; total de piezas al comienzo; el dibujo de los cantos aparece siempre (sin trazo grueso = sin filo); las piezas de colores lisos se marcan «liso» (RN-02) y se ponen con la medida mayor primero para poder juntarlas; las que se cortan para laquear lo indican.
 - **RF-22** Agrupa las piezas por material: una sección por cada combinación de marca, color y espesor de placa (18 mm, fondos de 5,5 mm, otros espesores), y una sección aparte para el pino.
 - **RF-23** Por cada pieza: cantidad, medida de corte 1 (sentido de la veta), medida de corte 2, tipo de filo, color del filo cuando es distinto al de la pieza, y un dibujo de los cantos con filo (cuadrado, U, L o línea), siguiendo la notación usada hoy con la maderera. Las medidas de corte ya tienen descontado el filo (RN-03.1).
 - **RF-24** Las piezas exactamente iguales (mismo material, medidas, sentido de la veta, tipo de filo, cantos con filo, color de filo, laca y terminación) se consolidan en una sola fila con su cantidad.
@@ -193,6 +196,16 @@ El inventario es de uso interno del taller: registra los sobrantes que llegan de
 |------------------|-------|--------------|------------------|
 | Laterales | 2 | H × P | (H − 2e) × P |
 | Fajas | 4 | (A − 2e) × ancho faja | A × ancho faja |
+
+  - **Cajonera con piso** (también de fajas de luz o de laterales de luz): en vez de las 2 fajas de abajo lleva un **piso**, siempre entero (ancho del módulo), y solo **2 fajas arriba** (adelante y atrás). Los laterales apoyan sobre el piso. El espacio interior y los cajones se calculan igual.
+
+| Pieza (cajonera con piso) | Cant. | Fajas de luz | Laterales de luz |
+|---------------------------|-------|--------------|------------------|
+| Piso | 1 | A × P | A × P |
+| Laterales | 2 | (H − e) × P | (H − 2e) × P |
+| Fajas (arriba) | 2 | (A − 2e) × ancho faja | A × ancho faja |
+
+Ej.: 50 × 40, fajas de luz → piso 50 × P, laterales 38,2 × P (×2), fajas 46,4 × 10 (×2); laterales de luz → piso 50 × P, laterales 36,4 × P (×2), fajas 50 × 8 (×2). P es la profundidad de la caja (con frentes de 18 mm, 30 → 28,2).
 
 ### 4.2 Estructura
 Siendo `A` ancho, `H` alto, `P` profundidad de la caja y `e` el espesor de placa (1,8 cm):
@@ -247,10 +260,10 @@ Siendo `g` el descuento de la guía por lado (1,35 cm), `ec` el espesor de los l
 | Laterales (18 mm) | 2 | largo guía × alto cajón |
 | Contrafrente (atrás, 18 mm) | 1 | (A − 2e − 2g − 2ec) × alto cajón |
 | Frente interno (adelante, 18 mm) | 1 | (A − 2e − 2g − 2ec) × (alto cajón − d) |
-| Fondo (placa de 5,5 mm) | 1 | (A − 2e − 2g) × largo guía |
+| Fondo (placa de 5,5 mm, siempre) | 1 | (A − 2e − 2g − 0,3) × (largo guía − 0,3) |
 | Frente visible | 1 | ver más abajo |
 
-Al frente interno se atornilla el frente visible. El fondo se calcula sin rebaje (clavado por debajo de la caja); cuando las piezas llevan rebaje (en las 4 piezas, o en laterales y contrafrente), la medida se ajusta manualmente.
+Al frente interno se atornilla el frente visible. El fondo del cajón sigue la misma lógica que el fondo del módulo: va clavado por debajo de la caja y mide **0,3 cm menos que la caja del cajón** en ancho y en largo (la caja mide A − 2e − 2g de ancho y el largo de la guía). Es **siempre de 5,5 mm** (el sistema solo ofrece placas de 5,5 y no deja guardar otra) y **nunca lleva filo**. Cuando las piezas llevan rebaje (en las 4 piezas, o en laterales y contrafrente), la medida se ajusta manualmente.
 
 **b) Corredera de lateral oculto**
 
@@ -327,6 +340,8 @@ Ejemplo: tramo de 180 × 55 → el sistema propone un zócalo de 180 × 53,5. Si
 - **RN-07** Una pieza lleva un solo tipo de filo.
 - **RN-08** Sin filos por defecto: toda pieza nace con el filo **sin definir** (distinto de "sin filo"). La única excepción son las piezas laqueadas, que nacen sin filo.
 - **RN-08.1** No se puede generar el listado para la maderera mientras alguna pieza del trabajo tenga el filo sin definir; el sistema indica cuáles faltan. Así no se agregan filos de más ni se olvida ninguno.
+- **RN-08.3** Los **fondos nunca llevan filo**: nacen «Sin filo», no se pueden marcar para ponerles filo y salen en el listado sin filo aunque algún dato viejo diga otra cosa (migración `13`). Lo mismo los listones (pinos). Se pueden rotar o editar.
+- **RN-08.4** El **piso (fondo) del cajón** tampoco lleva filo nunca, con cualquier guía: telescópica (5,5 mm) o de lateral oculto (18 o 15 mm). Se trata igual que un fondo: nace «Sin filo», no se puede marcar y sale sin filo en el listado (migraciones `14` y `15`).
 - **RN-08.2** Usos habituales, como referencia (no se cargan solos): puertas con 2 mm alrededor; laterales vistos con 2 mm en un canto largo y uno corto; estructura, estantes, pisos y techos con 0,45 mm (estantes: solo el canto largo de adelante); vestidores mayormente todo en 2 mm.
 
 ### 4.6 Ejemplos de validación
@@ -341,7 +356,7 @@ piso 90 × 55 · laterales 73,2 × 55 (×2) · estante 86,4 × 55 · pinos 86,4 
 piso y techo 90 × 38,2 (×2) · laterales 56,4 × 38,2 (×2) · estante 86,4 × 38,2 · fondo 59,7 × 89,7 (veta vertical por defecto; (90 − 0,3) × (60 − 0,3)) · puertas: final 59,2 × 44,5 → corte 58,8 × 44,1 con filo de 2 mm en los 4 cantos (×2), con veta vertical por defecto.
 
 **Cajonera 60 × 34 × 51,8 (caja de 50), fajas de luz de 10 cm, 2 cajones telescópicos con tirador, frentes con filo de 2 mm, caja estimada de 12:**
-laterales 34 × 50 (×2) · fajas 56,4 × 10 (×4) · frentes final 59,4 × 16,2 → corte 59,0 × 15,8 (×2) · por cajón (guía de 50): laterales 50 × 12 (×2), contrafrente 50,1 × 12, frente interno 50,1 × 9, fondo de 5,5 mm 53,7 × 50.
+laterales 34 × 50 (×2) · fajas 56,4 × 10 (×4) · frentes final 59,4 × 16,2 → corte 59,0 × 15,8 (×2) · por cajón (guía de 50): laterales 50 × 12 (×2), contrafrente 50,1 × 12, frente interno 50,1 × 9, fondo de 5,5 mm 53,4 × 49,7 (la caja mide 53,7 × 50; el fondo, 0,3 menos en cada lado).
 
 **Cajonera de 80 de alto con 3 cajones (luces 0,6 / 0,6, entre frentes 0,3; espacio para frentes 78,2):**
 sin altos definidos → 26,0 cada frente · con el primero en 15 → 15, 31,6 y 31,6.
@@ -379,7 +394,7 @@ Otros valores de cálculo viven en la entidad a la que pertenecen, no como pará
 | Descuento por canto, filo 0,45 mm | Tipo de filo | 0 cm |
 | Largos disponibles y espacio adicional de cada guía | Tipo de guía y sus largos | Telescópica: 0,2 cm; lateral oculto Rincón del Herraje: 1,1 cm; Eurohard y Häfele: 0,8 cm |
 | Diferencia de altura del frente interno del cajón | Piezas por tipo de guía | 3 cm (telescópica) |
-| Descuentos de las piezas del cajón | Piezas por tipo de guía | Telescópica: 6,3 cm a lo ancho para contrafrente y frente interno (2 × 1,35 guía + 2 × 1,8 laterales); 2,7 cm para el fondo (2 × 1,35 guía) |
+| Descuentos de las piezas del cajón | Piezas por tipo de guía | Telescópica: 6,3 cm a lo ancho para contrafrente y frente interno (2 × 1,35 guía + 2 × 1,8 laterales); fondo: 3,0 cm a lo ancho (2 × 1,35 guía + 0,3) y 0,3 cm a lo largo |
 
 ---
 

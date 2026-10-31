@@ -26,7 +26,11 @@ if TYPE_CHECKING:
 PASOS = ["Tipo", "Medidas", "Frentes", "Cajones", "Materiales", "Revisar"]
 ARMADOS = [("Módulo", "Módulo", "Piso y techo enteros, laterales entre ellos. Puertas, estantes y cajones."),
            ("Cajonera con fajas de luz", "Cajonera · fajas de luz", "Laterales enteros y 4 fajas entre ellos."),
-           ("Cajonera con laterales de luz", "Cajonera · laterales de luz", "4 fajas enteras y los laterales entre ellas.")]
+           ("Cajonera con laterales de luz", "Cajonera · laterales de luz", "4 fajas enteras y los laterales entre ellas."),
+           ("Cajonera con piso y fajas de luz", "Cajonera con piso · fajas de luz",
+            "Piso entero abajo; laterales sobre el piso y 2 fajas arriba entre ellos."),
+           ("Cajonera con piso y laterales de luz", "Cajonera con piso · laterales de luz",
+            "Piso entero abajo y 2 fajas enteras arriba; los laterales entre ellos.")]
 FILTRO_CON_SIGNO = ft.InputFilter(regex_string=r"^-?[0-9.,]{0,6}$", allow=True, replacement_string="")
 PERSONALIZADO = "personalizado"
 LUZ_COSTADO, LUZ_JUNTO = "0,3", "0,15"     # costado libre / junto a otro módulo (entre los dos suman 0,3)
@@ -123,7 +127,81 @@ def a_modulo(b: dict) -> ModuloGuardado:
 
 
 def _calcular(app: Aplicacion, b: dict) -> tuple[Despiece | None, str | None]:
+    if b["cajones"]:
+        _ajustar_guia(app, b)
     return app.ejecutar(lambda: app.muebles.previsualizar(a_modulo(b)))
+
+
+def _guias(app: Aplicacion) -> list:
+    guias, _ = app.ejecutar(app.catalogo.guias)
+    return guias or []
+
+
+def _largos_posibles(app: Aplicacion, b: dict) -> list[Decimal]:
+    """Largos cargados de la guía elegida que entran en la caja (de mayor a menor)."""
+    try:
+        espesor = app.muebles.espesor_frentes(_id(b["id_placa_frentes"]), _id(b["id_placa"]))
+        return app.muebles.largos_que_entran(int(b["id_guia"]), leer_numero(b["profundidad"], "x"), espesor)
+    except Exception:
+        return []
+
+
+def _ajustar_guia(app: Aplicacion, b: dict, guias: list | None = None) -> None:
+    """Guía por defecto (la telescópica, si está) y largo SIEMPRE de los cargados en
+    Materiales que entran en la caja: si el elegido deja de entrar (cambió la
+    profundidad o la guía), pasa al más largo que entra. Placa del piso: 5,5 mm con
+    telescópica; con lateral oculto, la de la estructura."""
+    guias = _guias(app) if guias is None else guias
+    if not guias:
+        return
+    if not any(str(g.id) == b["id_guia"] for g in guias):
+        telescopica = next((g for g in guias if any(x.pieza == "Lateral de cajón" for x in g.piezas)), None)
+        b["id_guia"] = str((telescopica or guias[0]).id)
+    posibles = [_f(x) for x in _largos_posibles(app, b)]
+    if b["largo_guia"] not in posibles:
+        b["largo_guia"] = posibles[0] if posibles else ""
+    guia = next((g for g in guias if str(g.id) == b["id_guia"]), None)
+    lleva_laterales = guia is not None and any(x.pieza == "Lateral de cajón" for x in guia.piezas)
+    de_55 = opciones_placas(app, solo_espesor_mm=Decimal("5.5"))
+    if lleva_laterales:
+        # Telescópica: el piso es un fondo de 5,5 mm, siempre.
+        if b["id_placa_piso"] not in [k for k, _ in de_55]:
+            b["id_placa_piso"] = de_55[0][0] if de_55 else ""
+    elif not b["id_placa_piso"] or b.get("_piso_de_guia", b["id_guia"] if b["id"] else None) != b["id_guia"]:
+        # Lateral oculto: se propone la de la estructura al elegir la guía; si después se cambia, se respeta.
+        b["id_placa_piso"] = b["id_placa"]
+    b["_piso_de_guia"] = b["id_guia"]
+
+
+def _habilitar(boton: ft.FilledButton, habilitado: bool) -> None:
+    """Botón principal apagado mientras haya un error: no se sigue sin resolverlo."""
+    boton.disabled = not habilitado
+    boton.opacity = 1 if habilitado else 0.4
+
+
+def _error_de_medidas(b: dict, al_avanzar: bool) -> str | None:
+    """Medidas del paso 2. Mientras se escribe solo avisa lo mal escrito; al tocar
+    «Siguiente», también lo que falta."""
+    campos = [("ancho", "el ancho"), ("alto", "el alto"), ("profundidad", "la profundidad")]
+    if b["armado"] != "Módulo":
+        campos.append(("ancho_faja", "el ancho de las fajas"))
+    for clave, nombre in campos:
+        if not b[clave] and not al_avanzar:
+            continue
+        try:
+            leer_numero(b[clave], nombre)
+        except Exception as error:   # mensaje para el usuario (ErrorMateriales)
+            return str(error)
+    return None
+
+
+def _error_del_paso(problema: str | None, paso: int) -> str | None:
+    """Los errores de la guía y los cajones recién se muestran desde el paso Cajones."""
+    if not problema or paso not in (2, 3, 4):
+        return None
+    if paso < 3 and ("guía" in problema or "Cajón" in problema or "cajón" in problema):
+        return None
+    return problema
 
 
 # ---------- dibujo en vivo ----------
@@ -195,12 +273,17 @@ def _frente(app: Aplicacion, x: float, y: float, w: float, h: float, cajon: bool
 
 
 # ---------- controles ----------
-def _campo_num(p, etiqueta: str, b: dict, clave: str, signo: bool = False, **opciones) -> ft.TextField:
+def _campo_num(p, etiqueta: str, b: dict, clave: str, signo: bool = False, al_escribir=None,
+               **opciones) -> ft.TextField:
+    """Campo de medida. al_escribir se llama con cada tecla: el error aparece en el
+    momento, sin esperar a salir del campo."""
     campo = tema.campo(etiqueta, p, value=b[clave], input_filter=FILTRO_CON_SIGNO if signo else FILTRO_NUMERO,
                        suffix=ft.Text("cm", color=p.texto_tenue), **opciones)
 
     def al_cambiar(_):
         b[clave] = campo.value or ""
+        if al_escribir:
+            al_escribir()
     campo.on_change = al_cambiar
     return campo
 
@@ -293,10 +376,10 @@ def _paso_tipo(app: Aplicacion, b: dict, refrescar) -> tuple[str, list[ft.Contro
 def _paso_medidas(app: Aplicacion, b: dict, refrescar, redibujar) -> tuple[str, list[ft.Control]]:
     p = app.paleta
     # El foco automático solo al entrar al paso: si no, al rearmar la pantalla volvería al ancho.
-    campos = [_campo_num(p, "Ancho", b, "ancho", autofocus=b.get("_primera_vez", False)),
-              _campo_num(p, "Alto (sin zócalo)", b, "alto"),
-              _campo_num(p, "Profundidad", b, "profundidad",
-                         helper="Total, con los frentes: con puertas o cajones la caja va 1,8 menos")]
+    campos = [_campo_num(p, "Ancho", b, "ancho", al_escribir=redibujar, autofocus=b.get("_primera_vez", False)),
+              _campo_num(p, "Alto (sin zócalo)", b, "alto", al_escribir=redibujar),
+              _campo_num(p, "Profundidad", b, "profundidad", al_escribir=redibujar,
+                         helper="Total, con los frentes incluidos")]
     for c in campos:
         c.on_blur = lambda _: redibujar()
         c.on_submit = lambda _: redibujar()
@@ -328,13 +411,18 @@ def _paso_frentes(app: Aplicacion, b: dict, refrescar, redibujar) -> tuple[str, 
         refrescar()
 
     estilo_elegido = next((e for e in estilos or [] if str(e.id) == b["id_estilo"]), None)
-    luces = ft.Row([ft.Container(_campo_num(p, "Arriba", b, "luz_superior", signo=True), expand=True),
-                    ft.Container(_campo_num(p, "Abajo", b, "luz_inferior", signo=True), expand=True),
-                    ft.Container(_campo_num(p, "Entre frentes", b, "luz_entre"), expand=True)], spacing=10)
+    luces = ft.Row([ft.Container(_campo_num(p, "Arriba", b, "luz_superior", signo=True, al_escribir=redibujar),
+                                 expand=True),
+                    ft.Container(_campo_num(p, "Abajo", b, "luz_inferior", signo=True, al_escribir=redibujar),
+                                 expand=True),
+                    ft.Container(_campo_num(p, "Entre frentes", b, "luz_entre", al_escribir=redibujar),
+                                 expand=True)], spacing=10)
     for c in luces.controls:
         c.content.on_blur = lambda _: redibujar()
-    costados = ft.Row([ft.Container(_campo_num(p, "Izquierda", b, "luz_izquierda"), expand=True),
-                       ft.Container(_campo_num(p, "Derecha", b, "luz_derecha"), expand=True)], spacing=10)
+    costados = ft.Row([ft.Container(_campo_num(p, "Izquierda", b, "luz_izquierda", al_escribir=redibujar),
+                                    expand=True),
+                       ft.Container(_campo_num(p, "Derecha", b, "luz_derecha", al_escribir=redibujar),
+                                    expand=True)], spacing=10)
     for c in costados.controls:
         c.content.on_blur = lambda _: redibujar()
 
@@ -377,6 +465,12 @@ def _aplicar_estilo(b: dict, estilo) -> None:
     b["luz_entre"] = _f(estilo.luz_entre_frentes)
 
 
+def _ir_a_guias(app: Aplicacion) -> None:
+    materiales = app.recuerdos.setdefault("materiales", {"pestana": "guias", "texto": "", "bajas": False})
+    materiales["pestana"] = "guias"
+    app.ir_a("materiales")
+
+
 def _paso_cajones(app: Aplicacion, b: dict, refrescar, redibujar) -> tuple[str, list[ft.Control]]:
     p = app.paleta
     guias, _ = app.ejecutar(app.catalogo.guias)
@@ -394,49 +488,56 @@ def _paso_cajones(app: Aplicacion, b: dict, refrescar, redibujar) -> tuple[str, 
         controles.append(tema.aviso("No hay guías cargadas: agregalas en Materiales › Guías.", p))
         return "¿Cuántos cajones lleva?", controles
 
-    def proponer() -> None:
-        """Largo de guía que entra y placa del piso: 5,5 mm con telescópica; con lateral
-        oculto, la de la estructura (18 o 15 mm)."""
-        try:
-            espesor = app.muebles.espesor_frentes(_id(b["id_placa_frentes"]), _id(b["id_placa"]))
-            propuesta = app.muebles.proponer_largo_guia(int(b["id_guia"]), leer_numero(b["profundidad"], "x"),
-                                                        espesor)
-        except Exception:
-            propuesta = None
-        if propuesta is not None:
-            b["largo_guia"] = _f(propuesta)
-        guia = next((g for g in guias if str(g.id) == b["id_guia"]), None)
-        lleva_laterales = guia is not None and any(x.pieza == "Lateral de cajón" for x in guia.piezas)
-        de_55 = opciones_placas(app, solo_espesor_mm=Decimal("5.5"))
-        b["id_placa_piso"] = de_55[0][0] if lleva_laterales and de_55 else b["id_placa"]
+    def al_elegir_guia() -> None:
+        b["largo_guia"] = ""          # se propone el más largo que entra de la guía nueva
+        _ajustar_guia(app, b, guias)
+        refrescar()
 
-    if not b["id_guia"]:
-        # Por defecto la telescópica (la que lleva laterales de cajón), si está.
-        telescopica = next((g for g in guias if any(x.pieza == "Lateral de cajón" for x in g.piezas)), None)
-        b["id_guia"] = str(telescopica.id) if telescopica else opciones_guias[0][0]
-        proponer()
+    _ajustar_guia(app, b, guias)
     guia = next((g for g in guias if str(g.id) == b["id_guia"]), None)
-    largos = ", ".join(_f(x) for x in guia.largos) if guia and guia.largos else "sin largos cargados"
-    largo = _campo_num(p, "Largo de la guía", b, "largo_guia", helper=f"Disponibles: {largos}")
-    caja = _campo_num(p, "Alto de la caja", b, "alto_caja", helper="Estimado; se puede corregir después")
+    posibles = _largos_posibles(app, b)
+    if guia is not None and not guia.largos:
+        largo: ft.Control = ft.Column([
+            tema.aviso(f"«{guia.nombre}» no tiene largos cargados. Cargalos en Materiales › Guías y volvé: "
+                       "lo que cargaste del módulo queda guardado.", p),
+            tema.boton_secundario("Ir a Materiales › Guías", p, lambda _: _ir_a_guias(app))], spacing=8)
+    elif not posibles:
+        cargados = ", ".join(_f(x) for x in sorted(guia.largos)) if guia else ""
+        largo = tema.aviso(f"Ningún largo de «{guia.nombre if guia else 'la guía'}» entra en la caja de este "
+                           f"módulo (largos cargados: {cargados}). Elegí otra guía o revisá la profundidad.", p)
+    else:
+        largo = _desplegable(app, b, "largo_guia", "Largo de la guía", [(_f(x), f"{_f(x)} cm") for x in posibles],
+                             redibujar)
+    caja = _campo_num(p, "Alto de la caja", b, "alto_caja", al_escribir=redibujar,
+                      helper="Estimado; se puede corregir después")
     altos = []
     for i in range(b["cajones"]):
-        campo = tema.campo(f"Frente del cajón {i + 1}", p, value=b["altos_frente"][i], input_filter=FILTRO_NUMERO,
+        campo = tema.campo(f"Cajón {i + 1}", p, value=b["altos_frente"][i], input_filter=FILTRO_NUMERO,
                            suffix=ft.Text("cm", color=p.texto_tenue),
                            hint_text="obligatorio" if b["puertas"] else "vacío = reparto")
-        campo.on_change = lambda _, i=i, c=campo: b["altos_frente"].__setitem__(i, c.value or "")
-        campo.on_blur = lambda _: redibujar()
+
+        def al_escribir(_, i=i, c=campo):
+            b["altos_frente"][i] = c.value or ""
+            redibujar()
+        campo.on_change = al_escribir
         altos.append(ft.Container(campo, col={"xs": 6, "md": 4}))
-    piso = _desplegable(app, b, "id_placa_piso", "Placa del piso del cajón",
-                        opciones_placas(app, (_id(b["id_placa_piso"]),)))
+    telescopica = guia is not None and any(x.pieza == "Lateral de cajón" for x in guia.piezas)
+    if telescopica:
+        de_55 = opciones_placas(app, solo_espesor_mm=Decimal("5.5"))
+        piso: ft.Control = (_desplegable(app, b, "id_placa_piso", "Piso del cajón (5,5 mm, como un fondo)", de_55,
+                                         redibujar) if de_55 else
+                            tema.aviso("Con guía telescópica el piso del cajón va en placa de 5,5 mm y no hay "
+                                       "ninguna cargada. Cargala en Materiales › Placas.", p))
+    else:
+        piso = _desplegable(app, b, "id_placa_piso", "Placa del piso del cajón",
+                            opciones_placas(app, (_id(b["id_placa_piso"]),)), redibujar)
     controles += [
-        _desplegable(app, b, "id_guia", "Tipo de guía", opciones_guias, lambda: (proponer(), refrescar())),
+        _desplegable(app, b, "id_guia", "Tipo de guía", opciones_guias, al_elegir_guia),
         ft.Row([ft.Container(largo, expand=True), ft.Container(caja, expand=True)], spacing=10,
                vertical_alignment=ft.CrossAxisAlignment.START),
-        _ayuda(p, "El largo propuesto es la guía más larga que entra en la caja (la profundidad menos el "
-                  "espesor de los frentes)." if b["largo_guia"]
-               else "Cargá el largo de la guía (o los largos disponibles en Materiales › Guías)."),
-        tema.etiqueta_superior("Alto de cada frente", p),
+        _ayuda(p, "Solo aparecen los largos cargados en Materiales › Guías que entran en la caja (la profundidad "
+                  "menos el espesor de los frentes). Se propone el más largo."),
+        tema.etiqueta_superior("Alto del frente de cada cajón", p),
         _ayuda(p, "Con puertas, cada cajón necesita su alto de frente: las puertas ocupan lo que queda."
                if b["puertas"] else "Dejalos vacíos para repartir el alto en partes iguales."),
         ft.ResponsiveRow(altos, spacing=10, run_spacing=10),
@@ -463,9 +564,15 @@ def _paso_materiales(app: Aplicacion, b: dict, refrescar, d: Despiece | None) ->
     if b["puertas"] or b["cajones"]:
         colores, _ = app.ejecutar(app.catalogo.colores_laca)
         terminaciones, _ = app.ejecutar(app.catalogo.terminaciones)
+        def al_elegir_laca() -> None:
+            # La terminación que se ve en pantalla queda elegida de entrada (la primera).
+            if b["id_color_laca"] and not b["id_terminacion"] and terminaciones:
+                b["id_terminacion"] = str(terminaciones[0].id)
+            refrescar()
+
         laca = _desplegable(app, b, "id_color_laca", "Laca de los frentes (opcional)",
                             [("", "Sin laquear")] + [(str(c.id), f"{c.marca} {c.descripcion}") for c in colores or []],
-                            refrescar)
+                            al_elegir_laca)
         controles.append(laca)
         if b["id_color_laca"]:
             controles += [_desplegable(app, b, "id_terminacion", "Terminación",
@@ -579,13 +686,27 @@ def construir(app: Aplicacion, id_mueble: int, id_modulo: int | None) -> ft.Cont
     b["_paso_mostrado"] = paso
     contenedor_dibujo = ft.Container(content=_dibujo(app, b, d))
 
+    def problema_del_paso(calculo_error: str | None, al_avanzar: bool) -> str | None:
+        """El error que frena este paso: mientras haya uno, no se puede seguir."""
+        if paso == 0:
+            return _error_de_medidas({**b, "ancho": "1", "alto": "1", "profundidad": "1"}, al_avanzar) \
+                if b["armado"] != "Módulo" else None
+        if paso == 1:
+            return _error_de_medidas(b, al_avanzar)
+        if paso == len(PASOS) - 1:
+            return calculo_error
+        return _error_del_paso(calculo_error, paso)
+
+    def mostrar_estado(problema: str | None) -> None:
+        caja_error.content, caja_error.visible = (tema.aviso(problema, p) if problema else None), bool(problema)
+        _habilitar(boton_avanzar, problema is None)
+
     def redibujar() -> None:
-        """Actualiza solo el dibujo (y el aviso de error), sin rearmar la pantalla:
-        así el cursor queda en el campo donde se está escribiendo."""
+        """Con cada dato: actualiza el dibujo y el aviso de error en el momento, sin
+        rearmar la pantalla (el cursor queda donde se está escribiendo)."""
         nuevo, problema = _calcular(app, b)
         contenedor_dibujo.content = _dibujo(app, b, nuevo)
-        mostrar = bool(problema) and paso in (2, 3, 4)
-        caja_error.content, caja_error.visible = (tema.aviso(problema, p) if mostrar else None), mostrar
+        mostrar_estado(problema_del_paso(problema, al_avanzar=False))
         app.page.update()
     if paso == 0:
         titulo, controles = _paso_tipo(app, b, refrescar)
@@ -600,18 +721,14 @@ def construir(app: Aplicacion, id_mueble: int, id_modulo: int | None) -> ft.Cont
     else:
         titulo, controles = _paso_revisar(app, b, d, error, refrescar)
 
-    caja_error = ft.Container(content=tema.aviso(error, p) if error and paso in (2, 3, 4) else None,
-                              visible=bool(error) and paso in (2, 3, 4))
+    caja_error = ft.Container(visible=False)
 
     def siguiente(_=None) -> None:
-        if paso == 1:
-            calculo, problema = _calcular(app, b)
-            if problema and ("Completá" in problema or "Revisá el" in problema or "medidas" in problema):
-                caja_error.content, caja_error.visible = tema.aviso(problema, p), True
-                app.page.update()
-                return
-        if paso == 3 and b["cajones"] and not b["largo_guia"]:
-            caja_error.content, caja_error.visible = tema.aviso("Cargá el largo de la guía.", p), True
+        # No se sigue con un error: primero hay que resolverlo.
+        _, problema = _calcular(app, b) if paso >= 2 else (None, None)
+        problema = problema_del_paso(problema, al_avanzar=True)
+        if problema:
+            mostrar_estado(problema)
             app.page.update()
             return
         ir_a_paso(paso + 1)
@@ -647,10 +764,20 @@ def construir(app: Aplicacion, id_mueble: int, id_modulo: int | None) -> ft.Cont
     botones = [tema.boton_secundario("Atrás", p, lambda _: ir_a_paso(paso - 1)) if paso
                else tema.boton_secundario("Volver al trabajo", p, salir)]
     if paso < len(PASOS) - 1:
-        botones.append(tema.boton_principal(f"Siguiente: {PASOS[paso + 1].lower()} →", p, siguiente, expand=True))
+        boton_avanzar = tema.boton_principal(f"Siguiente: {PASOS[paso + 1].lower()} →", p, siguiente, expand=True)
     else:
         texto = f"Guardar {b['cantidad']} módulos iguales" if b.get("cantidad", 1) > 1 else "Guardar módulo"
-        botones.append(tema.boton_principal(texto, p, guardar, expand=True, disabled=d is None))
+        boton_avanzar = tema.boton_principal(texto, p, guardar, expand=True)
+    botones.append(boton_avanzar)
+    # Los desplegables de este paso pueden haber completado su primera opción:
+    # se recalcula para que el error y el botón reflejen lo que se ve en pantalla.
+    if paso >= 2:
+        d_actual, error = _calcular(app, b)
+        d = d_actual if d_actual is not None else d
+    problema_inicial = problema_del_paso(error, al_avanzar=False)
+    caja_error.content = tema.aviso(problema_inicial, p) if problema_inicial and paso < len(PASOS) - 1 else None
+    caja_error.visible = bool(problema_inicial) and paso < len(PASOS) - 1
+    _habilitar(boton_avanzar, problema_inicial is None and (d is not None or paso < len(PASOS) - 1))
 
     panel = componentes.tarjeta(ft.Column([
         tema.etiqueta_superior(f"Paso {paso + 1} de {len(PASOS)}", p),

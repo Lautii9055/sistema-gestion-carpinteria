@@ -1,6 +1,6 @@
 # Sistema de Gestión para Carpintería — Modelo de Datos
 
-**Versión del documento:** 2.0 (cantidad de módulos iguales `cantidad_mod`, migración `12`) · 1.9 (luces laterales por módulo `luz_izquierda_mod` / `luz_derecha_mod`, migración `11`) · 1.8 (tabla Modulo_Veta_Rotada, migración `10`; parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
+**Versión del documento:** 2.2 (tipos de armado: cajoneras con piso, migración `16`) · 2.1 (piso del cajón con telescópica: 3,0 / 0,3, migración `15`) · 2.0 (cantidad de módulos iguales `cantidad_mod`, migración `12`) · 1.9 (luces laterales por módulo `luz_izquierda_mod` / `luz_derecha_mod`, migración `11`) · 1.8 (tabla Modulo_Veta_Rotada, migración `10`; parámetro descuento_fondo, migración `09`; piso de cajón con guía oculta: largo − 0,9, migración `08`; fecha de presupuesto del trabajo, migración `06`; entrega pactada por semana, migración `07`)
 **Normalización:** 3FN
 **Motor:** SQL Server 2025 Express (conexión desde Python con pyodbc). Base `Carpinteria` con collation `Modern_Spanish_CI_AI` (las búsquedas ignoran mayúsculas y tildes).
 **Scripts:** `database/00_crear_base_de_datos.sql` … `05_seguridad.sql`.
@@ -254,6 +254,8 @@ Estructura de melamina sobre la que apoyan los módulos. Pertenece al mueble por
 > - **Módulo:** piso y techo enteros, laterales de luz (se agujerean pisos y techos). Aplica a todos los módulos que no son cajonera.
 > - **Cajonera con fajas de luz:** laterales enteros, 4 fajas entre ellos (se agujerean los laterales).
 > - **Cajonera con laterales de luz:** 4 fajas enteras, laterales entre ellas.
+> - **Cajonera con piso y fajas de luz:** piso entero; laterales sobre el piso y 2 fajas arriba entre ellos (migración `16`).
+> - **Cajonera con piso y laterales de luz:** piso entero y 2 fajas enteras arriba; laterales entre ellos (migración `16`).
 > Cada tipo tiene su propia regla de despiece en la capa de negocio.
 
 ### `Estilo_Frente`
@@ -326,10 +328,10 @@ Cada pieza usa dos de las tres referencias: la que no usa queda en nulo.
 | Lateral de cajón | 2 | — | 0 | 0 |
 | Contrafrente de cajón | 1 | 6,3 | — | 0 |
 | Frente interno de cajón | 1 | 6,3 | — | 3 |
-| Piso de cajón (5,5 mm) | 1 | 2,7 | 0 | — |
+| Piso de cajón (5,5 mm) | 1 | 3,0 | 0,3 | — |
 
-> 6,3 = 2 × 1,35 (guías) + 2 × 1,8 (laterales). 2,7 = 2 × 1,35 (guías).
-> El piso se calcula sin rebaje (clavado por debajo de la caja). Si las piezas llevan rebaje, la medida se ajusta manualmente.
+> 6,3 = 2 × 1,35 (guías) + 2 × 1,8 (laterales). Piso: la caja mide (ancho interior − 2,7) × largo guía (2,7 = 2 × 1,35 guías) y el piso, como un fondo, 0,3 menos en cada lado: 3,0 y 0,3 (migración `15`).
+> El piso se calcula sin rebaje (clavado por debajo de la caja). Si las piezas llevan rebaje, la medida se ajusta manualmente. Es siempre de 5,5 mm y nunca lleva filo.
 
 **Ejemplo — Lateral oculto (Rincón del Herraje, Eurohard y Häfele):**
 

@@ -10,7 +10,7 @@ from carpinteria.negocio.entidades import DetalleTrabajo, EstadoTrabajo
 from carpinteria.negocio.trabajos import (CAMPOS_DE_FECHA, CANCELADO, COBRADO, FECHA_PRESUPUESTO,
                                           ESTADOS_QUE_SE_PUEDEN_ELIMINAR, INSTALADO, texto_entrega, NOMBRE_DE_FECHA, PRESUPUESTADO,
                                           formato_fecha, formato_pesos, leer_fecha, leer_monto)
-from carpinteria.presentacion import componentes, tema, vista_muebles, vista_trabajos
+from carpinteria.presentacion import componentes, tema, vista_listados, vista_muebles, vista_trabajos
 from carpinteria.presentacion.tema import SANS_MEDIA, SANS_SEMI, SERIF
 
 if TYPE_CHECKING:
@@ -404,8 +404,8 @@ def construir(app: Aplicacion, id_trabajo: int) -> ft.Control:
         componentes.boton_con_icono("Editar datos", ft.Icons.EDIT_OUTLINED, p,
                                     lambda _: _editar_datos(app, d), principal=False,
                                     disabled=not c.es_activo),
-        componentes.boton_con_icono("Listado de corte", ft.Icons.DESCRIPTION_OUTLINED, p, None,
-                                    disabled=True, tooltip="Disponible cuando esté el despiece"),
+        componentes.boton_con_icono("Listados", ft.Icons.DESCRIPTION_OUTLINED, p,
+                                    lambda _: vista_listados.elegir_listado(app, d)),
     ], spacing=12, vertical_alignment=ft.CrossAxisAlignment.END)
 
     aviso_baja: list[ft.Control] = [] if c.es_activo else [tema.aviso(

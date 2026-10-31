@@ -421,6 +421,8 @@ class PiezaGuardada:
     descripcion: str | None = None
     editada: bool = False
     veces: int = 1                    # cantidad de módulos iguales del dueño (solo lectura)
+    id_guia_cajon: int | None = None  # guía del cajón al que pertenece (solo lectura)
+    sin_filo_fijo: bool = False       # nunca lleva filo por la guía (piso con lateral oculto); lo marca el servicio
 
     @property
     def total(self) -> int:

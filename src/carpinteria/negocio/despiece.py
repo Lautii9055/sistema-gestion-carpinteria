@@ -35,10 +35,23 @@ class Armado(Enum):
     MODULO = "Módulo"
     CAJONERA_FAJAS_DE_LUZ = "Cajonera con fajas de luz"
     CAJONERA_LATERALES_DE_LUZ = "Cajonera con laterales de luz"
+    # Con piso abajo y solo 2 fajas arriba (adelante y atrás):
+    CAJONERA_PISO_FAJAS_DE_LUZ = "Cajonera con piso y fajas de luz"
+    CAJONERA_PISO_LATERALES_DE_LUZ = "Cajonera con piso y laterales de luz"
 
     @property
     def es_cajonera(self) -> bool:
         return self is not Armado.MODULO
+
+    @property
+    def lleva_piso(self) -> bool:
+        """Cajonera con piso abajo (y solo 2 fajas arriba) en vez de 4 fajas."""
+        return self in (Armado.CAJONERA_PISO_FAJAS_DE_LUZ, Armado.CAJONERA_PISO_LATERALES_DE_LUZ)
+
+    @property
+    def laterales_enteros(self) -> bool:
+        """Fajas de luz: los laterales van enteros y lo demás entre ellos."""
+        return self in (Armado.CAJONERA_FAJAS_DE_LUZ, Armado.CAJONERA_PISO_FAJAS_DE_LUZ)
 
 
 class Material(Enum):
@@ -153,11 +166,17 @@ def _positiva(valor: Decimal, que: str) -> Decimal:
 
 
 # ---------- largo de la guía (4.4 d) ----------
-def proponer_largo_guia(guia: TipoGuia, profundidad: Decimal, reglas: Reglas = Reglas()) -> Decimal | None:
-    """La guía más larga que entra: largo + espacio adicional ≤ profundidad + tolerancia."""
+def largos_que_entran(guia: TipoGuia, profundidad: Decimal, reglas: Reglas = Reglas()) -> list[Decimal]:
+    """Largos cargados de la guía que entran: largo + espacio adicional ≤ profundidad + tolerancia.
+    De mayor a menor."""
     limite = profundidad + reglas.tolerancia_guia
-    posibles = [largo for largo in guia.largos if largo + guia.espacio_adicional <= limite]
-    return max(posibles) if posibles else None
+    return sorted((largo for largo in guia.largos if largo + guia.espacio_adicional <= limite), reverse=True)
+
+
+def proponer_largo_guia(guia: TipoGuia, profundidad: Decimal, reglas: Reglas = Reglas()) -> Decimal | None:
+    """La guía más larga que entra."""
+    posibles = largos_que_entran(guia, profundidad, reglas)
+    return posibles[0] if posibles else None
 
 
 # ---------- validación ----------
@@ -232,14 +251,28 @@ def _estructura(m: Modulo, reglas: Reglas) -> list[Pieza]:
             piezas.append(Pieza("Estante", m.estantes, redondear(A - 2 * e), redondear(P), Material.ESTRUCTURA))
         if m.lleva_pinos:
             piezas.append(Pieza("Pino", 2, redondear(A - 2 * e), None, Material.LISTON))
-    elif m.armado is Armado.CAJONERA_FAJAS_DE_LUZ:
-        # Laterales enteros; las 4 fajas entre ellos.
-        piezas.append(Pieza("Lateral", 2, redondear(H), redondear(P), Material.ESTRUCTURA))
-        piezas.append(Pieza("Faja", 4, redondear(A - 2 * e), redondear(m.ancho_faja), Material.ESTRUCTURA))
     else:
-        # Fajas enteras; los laterales entre ellas.
-        piezas.append(Pieza("Lateral", 2, _positiva(H - 2 * e, "el lateral"), redondear(P), Material.ESTRUCTURA))
-        piezas.append(Pieza("Faja", 4, redondear(A), redondear(m.ancho_faja), Material.ESTRUCTURA))
+        # Cajoneras: 4 fajas (2 arriba y 2 abajo, adelante y atrás) o, «con piso», un piso
+        # abajo y solo 2 fajas arriba. El piso va SIEMPRE entero (ancho del módulo) y los
+        # laterales apoyan sobre él. Fajas de luz: laterales enteros hasta arriba y las fajas
+        # entre ellos. Laterales de luz: fajas enteras y los laterales entre piso y fajas.
+        if m.armado.lleva_piso:
+            piezas.append(Pieza("Piso", 1, _positiva(A, "el piso"), _positiva(P, "el piso"), Material.ESTRUCTURA))
+            if m.armado.laterales_enteros:   # 50 × 40: laterales 38,2; fajas 46,4
+                piezas.append(Pieza("Lateral", 2, _positiva(H - e, "el lateral"), redondear(P), Material.ESTRUCTURA))
+                piezas.append(Pieza("Faja", 2, _positiva(A - 2 * e, "la faja"), redondear(m.ancho_faja),
+                                    Material.ESTRUCTURA))
+            else:                            # 50 × 40: laterales 36,4; fajas 50
+                piezas.append(Pieza("Lateral", 2, _positiva(H - 2 * e, "el lateral"), redondear(P),
+                                    Material.ESTRUCTURA))
+                piezas.append(Pieza("Faja", 2, redondear(A), redondear(m.ancho_faja), Material.ESTRUCTURA))
+        elif m.armado.laterales_enteros:
+            piezas.append(Pieza("Lateral", 2, redondear(H), redondear(P), Material.ESTRUCTURA))
+            piezas.append(Pieza("Faja", 4, _positiva(A - 2 * e, "la faja"), redondear(m.ancho_faja),
+                                Material.ESTRUCTURA))
+        else:
+            piezas.append(Pieza("Lateral", 2, _positiva(H - 2 * e, "el lateral"), redondear(P), Material.ESTRUCTURA))
+            piezas.append(Pieza("Faja", 4, redondear(A), redondear(m.ancho_faja), Material.ESTRUCTURA))
     if m.lleva_fondo:
         # 0,3 menos que el módulo en ancho y alto (30 × 30 → 29,7 × 29,7); veta vertical por defecto.
         d = reglas.descuento_fondo

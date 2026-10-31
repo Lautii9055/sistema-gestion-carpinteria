@@ -11,7 +11,7 @@ _COLUMNAS_PIEZA = """p.id_pieza, tp.nombre_tpi, p.id_material, p.cantidad_pie, p
        p.id_mueble, p.id_modulo, p.id_cajon, p.id_zocalo, c.orden_caj, p.id_tipo_filo,
        p.lleva_filo_superior_pie, p.lleva_filo_inferior_pie, p.lleva_filo_izquierdo_pie, p.lleva_filo_derecho_pie,
        p.id_color_placa_filo, p.id_color_laca, p.id_terminacion_laca, p.descripcion_pie,
-       p.es_editada_manualmente_pie, COALESCE(mp.cantidad_mod, mc.cantidad_mod, 1)"""
+       p.es_editada_manualmente_pie, COALESCE(mp.cantidad_mod, mc.cantidad_mod, 1), c.id_tipo_guia"""
 _DESDE_PIEZA = """FROM dbo.Pieza p
 JOIN dbo.Tipo_Pieza tp ON tp.id_tipo_pieza = p.id_tipo_pieza
 LEFT JOIN dbo.Cajon c  ON c.id_cajon = p.id_cajon
@@ -39,7 +39,7 @@ def _a_pieza(f) -> PiezaGuardada:
                          id_zocalo=f[9], orden_cajon=f[10], id_tipo_filo=f[11],
                          cantos=Cantos(bool(f[12]), bool(f[13]), bool(f[14]), bool(f[15])),
                          id_color_filo=f[16], id_color_laca=f[17], id_terminacion=f[18], descripcion=f[19],
-                         editada=bool(f[20]), veces=f[21])
+                         editada=bool(f[20]), veces=f[21], id_guia_cajon=f[22])
 
 
 def _insertar_pieza(cursor, p: PiezaGuardada, *, id_mueble=None, id_modulo=None, id_cajon=None,

@@ -67,7 +67,9 @@ INSERT INTO dbo.Estado_Trabajo (orden_etr, nombre_etr) VALUES
 INSERT INTO dbo.Tipo_Armado (nombre_tar, es_cajonera_tar, descripcion_tar) VALUES
     (N'Módulo',                        0, N'Piso y techo enteros, laterales de luz (se agujerean pisos y techos)'),
     (N'Cajonera con fajas de luz',     1, N'Laterales enteros, 4 fajas entre ellos (se agujerean los laterales)'),
-    (N'Cajonera con laterales de luz', 1, N'4 fajas enteras, laterales entre ellas');
+    (N'Cajonera con laterales de luz', 1, N'4 fajas enteras, laterales entre ellas'),
+    (N'Cajonera con piso y fajas de luz',     1, N'Piso entero; laterales sobre el piso y 2 fajas arriba entre ellos'),
+    (N'Cajonera con piso y laterales de luz', 1, N'Piso entero y 2 fajas enteras arriba; laterales entre ellos');
 
 /* ---------- Estilos de frente ---------- */
 INSERT INTO dbo.Estilo_Frente (nombre_efr, luz_superior_efr, luz_inferior_efr, luz_entre_frentes_efr, descripcion_efr) VALUES
@@ -118,14 +120,16 @@ INSERT INTO dbo.Tipo_Guia (nombre_tgu, marca_tgu, espacio_adicional_tgu) VALUES
    Medida = referencia - descuento. Referencias: ancho interior del módulo,
    largo de la guía y alto del cajón. NULL = la pieza no usa esa medida. */
 
--- Telescópica: 6,3 = 2 x 1,35 (guías) + 2 x 1,8 (laterales); 2,7 = 2 x 1,35 (guías)
+-- Telescópica: 6,3 = 2 x 1,35 (guías) + 2 x 1,8 (laterales).
+-- Piso (5,5 mm, clavado abajo como un fondo): 0,3 menos que la caja del cajón en ancho y en largo:
+-- caja = ancho interior - 2,7 (2 x 1,35 guías) -> piso = ancho interior - 3,0; largo = largo guía - 0,3
 INSERT INTO dbo.Pieza_Guia (id_tipo_guia, id_tipo_pieza, cantidad_pgu, descuento_ancho_pgu, descuento_largo_pgu, descuento_alto_pgu, alto_fijo_pgu)
 SELECT g.id_tipo_guia, p.id_tipo_pieza, v.cantidad, v.d_ancho, v.d_largo, v.d_alto, NULL
 FROM (VALUES
         (N'Lateral de cajón',        2, NULL, 0.0,  0.0),
         (N'Contrafrente de cajón',   1, 6.3,  NULL, 0.0),
         (N'Frente interno de cajón', 1, 6.3,  NULL, 3.0),
-        (N'Piso de cajón',           1, 2.7,  0.0,  NULL)
+        (N'Piso de cajón',           1, 3.0,  0.3,  NULL)
      ) AS v (pieza, cantidad, d_ancho, d_largo, d_alto)
 JOIN dbo.Tipo_Pieza p ON p.nombre_tpi = v.pieza
 CROSS JOIN dbo.Tipo_Guia g

@@ -19,11 +19,24 @@ from carpinteria.negocio.catalogo import SIN_FILO
 from carpinteria.negocio.entidades import (Cantos, ModuloGuardado, Mueble, PiezaGuardada, Placa, TipoGuia,
                                           ZocaloGuardado)
 from carpinteria.negocio.estados import CANCELADO, COBRADO, INSTALADO
+from carpinteria.negocio.filos import PISO_DE_CAJON, TIPOS_SIN_FILO, cantos_de_patron
+from carpinteria.negocio.listado import SeccionCorte, SeccionLaca, armar_laqueador, armar_listado
 from carpinteria.negocio.puertos import (RepositorioCatalogo, RepositorioMateriales, RepositorioMuebles,
                                          RepositorioParametros, RepositorioTrabajos)
 
 ESTADOS_SIN_CAMBIOS = (INSTALADO, COBRADO, CANCELADO)
+
+
+def nunca_lleva_filo(p: PiezaGuardada) -> bool:
+    """Fondos, pisos de cajón (con cualquier guía) y listones: no llevan filo nunca."""
+    return p.tipo in TIPOS_SIN_FILO or p.medida_2 is None or p.sin_filo_fijo
+
+
+def guia_oculta(guia: TipoGuia) -> bool:
+    """Lateral oculto (cualquier marca): la guía no lleva laterales de cajón."""
+    return not any(x.pieza == "Lateral de cajón" for x in guia.piezas)
 TIPOS_SUELTOS = ("Ajuste", "Otra")
+PISO_TELESCOPICA_MM = Decimal("5.5")
 
 
 MAXIMO_MODULOS_IGUALES = 50
@@ -81,6 +94,7 @@ class ServicioMuebles:
 
     def _pieza_editable(self, id_pieza: int) -> PiezaGuardada:
         pieza = self._repo.pieza(id_pieza)
+        pieza = self._marcar([pieza])[0] if pieza else None
         id_trabajo = self._repo.trabajo_de_pieza(id_pieza)
         if pieza is None or id_trabajo is None:
             raise ErrorMuebles("La pieza ya no existe.")
@@ -123,6 +137,11 @@ class ServicioMuebles:
         """La guía va dentro de la caja: profundidad total menos el espesor de los frentes."""
         return motor.proponer_largo_guia(self._guia(id_guia), profundidad - espesor_frentes, self.reglas())
 
+    def largos_que_entran(self, id_guia: int, profundidad: Decimal,
+                          espesor_frentes: Decimal = Decimal("1.8")) -> list[Decimal]:
+        """Los largos cargados de la guía que entran en la caja (de mayor a menor)."""
+        return motor.largos_que_entran(self._guia(id_guia), profundidad - espesor_frentes, self.reglas())
+
     def espesor_frentes(self, id_placa_frentes: int | None, id_placa: int | None) -> Decimal:
         placas = self._placas()
         placa = placas.get(id_placa_frentes) or placas.get(id_placa)
@@ -159,6 +178,11 @@ class ServicioMuebles:
                 raise ErrorMuebles("Una de las placas elegidas ya no existe.")
         if (m.id_color_laca is None) != (m.id_terminacion is None):
             raise ErrorMuebles("Para laquear los frentes elegí el color de laca y la terminación.")
+        for i, c in enumerate(m.cajones, 1):
+            # Con telescópica el piso es un fondo de 5,5 mm clavado abajo (con oculta, 18 o 15 mm).
+            if not guia_oculta(self._guia(c.id_guia)) and placas[c.id_placa_piso].espesor_mm != PISO_TELESCOPICA_MM:
+                raise ErrorMuebles(f"Cajón {i}: con guía telescópica, el piso del cajón va en placa de 5,5 mm. "
+                                   "Elegila en el paso Cajones (si no hay, cargala en Materiales).")
         roles = self._material_por_rol(m)
         sin_veta = {rol for rol, id_placa in roles.items()
                     if id_placa in placas and placas[id_placa].color and not placas[id_placa].color.tiene_veta}
@@ -189,7 +213,12 @@ class ServicioMuebles:
         resultado = self.previsualizar(m)
         roles = self._material_por_rol(m)
         # Frentes laqueados y listones (pinos) nacen «Sin filo»: no llevan.
-        sin_filo = self._sin_filo() if m.id_color_laca or any(p.medida_2 is None for p in resultado.piezas) else None
+        def piso_oculto(p) -> bool:
+            return p.tipo == PISO_DE_CAJON and p.cajon is not None and guia_oculta(self._guia(m.cajones[p.cajon - 1].id_guia))
+
+        def nunca(p) -> bool:
+            return p.medida_2 is None or p.tipo in TIPOS_SIN_FILO or piso_oculto(p)
+        sin_filo = self._sin_filo() if m.id_color_laca or any(nunca(p) for p in resultado.piezas) else None
 
         generadas = []
         for p in resultado.piezas:
@@ -201,7 +230,7 @@ class ServicioMuebles:
             generadas.append(PiezaGuardada(
                 None, p.tipo, id_material, p.cantidad, p.medida_1, p.medida_2,
                 id_modulo=None if p.cajon else m.id, orden_cajon=p.cajon,
-                id_tipo_filo=sin_filo if laqueada or p.medida_2 is None else None,
+                id_tipo_filo=sin_filo if laqueada or nunca(p) else None,
                 id_color_laca=m.id_color_laca if laqueada else None,
                 id_terminacion=m.id_terminacion if laqueada else None))
 
@@ -234,7 +263,9 @@ class ServicioMuebles:
                               f"El cálculo nuevo da {medida} (×{p.cantidad}); revisala.")
                 continue
             anterior = filos.get(grupo)
-            if anterior is not None and p.id_color_laca is None:
+            # Solo a las que nacen con el filo por definir: las que nunca llevan (fondos,
+            # pisos con guía oculta, listones, laqueadas) quedan «Sin filo».
+            if anterior is not None and p.id_color_laca is None and p.id_tipo_filo is None:
                 p = replace(p, id_tipo_filo=anterior.id_tipo_filo, cantos=anterior.cantos,
                             id_color_filo=anterior.id_color_filo)
             nuevas.append(p)
@@ -277,11 +308,19 @@ class ServicioMuebles:
         self._repo.eliminar_zocalo(id_zocalo)
 
     # ---------- piezas (RF-15 a RF-19) ----------
+    def _marcar(self, piezas: list[PiezaGuardada]) -> list[PiezaGuardada]:
+        """Marca los pisos de cajón con guía oculta: nunca llevan filo (RN-08.4)."""
+        if not any(p.tipo == PISO_DE_CAJON and p.id_guia_cajon for p in piezas):
+            return piezas
+        ocultas = {g.id for g in self._catalogo.guias() if guia_oculta(g)}
+        return [replace(p, sin_filo_fijo=True) if p.tipo == PISO_DE_CAJON and p.id_guia_cajon in ocultas else p
+                for p in piezas]
+
     def piezas_del_trabajo(self, id_trabajo: int) -> list[PiezaGuardada]:
-        return self._repo.piezas_de_trabajo(id_trabajo)
+        return self._marcar(self._repo.piezas_de_trabajo(id_trabajo))
 
     def piezas_de_modulo(self, id_modulo: int) -> list[PiezaGuardada]:
-        return self._repo.piezas_de_modulo(id_modulo)
+        return self._marcar(self._repo.piezas_de_modulo(id_modulo))
 
     def piezas_de_zocalo(self, id_zocalo: int) -> list[PiezaGuardada]:
         return self._repo.piezas_de_zocalo(id_zocalo)
@@ -295,7 +334,35 @@ class ServicioMuebles:
 
     def piezas_sin_filo(self, id_trabajo: int) -> list[PiezaGuardada]:
         """Las que todavía no tienen filo definido: bloquean el listado (RN-08.1)."""
-        return [p for p in self._repo.piezas_de_trabajo(id_trabajo) if p.id_tipo_filo is None]
+        return [p for p in self.piezas_del_trabajo(id_trabajo) if p.id_tipo_filo is None and not nunca_lleva_filo(p)]
+
+    # ---------- listados (M6) ----------
+    def listado_de_corte(self, id_trabajo: int) -> list[SeccionCorte]:
+        """Listado para la maderera. No se genera mientras falte algún filo (RN-08.1)."""
+        piezas = self.piezas_del_trabajo(id_trabajo)
+        if not piezas:
+            raise ErrorMuebles("El trabajo todavía no tiene piezas: cargá sus muebles y módulos.")
+        faltan = [p for p in piezas if p.id_tipo_filo is None and not nunca_lleva_filo(p)]
+        if faltan:
+            nombres = list(dict.fromkeys(p.descripcion or p.tipo for p in faltan))
+            lista = ", ".join(nombres[:6]) + ("…" if len(nombres) > 6 else "")
+            raise ErrorMuebles(f"Faltan definir los filos de {len(faltan)} fila{'s' if len(faltan) != 1 else ''} "
+                               f"({lista}). Completalos en «Piezas y filos» para generar el listado.")
+        return armar_listado(piezas, self._placas(), {x.id: x for x in self._materiales.listones()},
+                             {f.id: f for f in self._catalogo.filos()},
+                             {c.id: c for c in self._materiales.colores()},
+                             {c.id: c for c in self._catalogo.colores_laca()})
+
+    def listado_laqueador(self, id_trabajo: int) -> list[SeccionLaca]:
+        secciones = armar_laqueador(self._repo.piezas_de_trabajo(id_trabajo),
+                                    {c.id: c for c in self._catalogo.colores_laca()},
+                                    {t.id: t for t in self._catalogo.terminaciones()}, self._placas())
+        if not secciones:
+            raise ErrorMuebles("El trabajo no tiene piezas laqueadas.")
+        return secciones
+
+    def tiene_laqueadas(self, id_trabajo: int) -> bool:
+        return any(p.id_color_laca is not None for p in self._repo.piezas_de_trabajo(id_trabajo))
 
     def definir_filo(self, ids: list[int], id_tipo_filo: int, cantos: Cantos,
                      id_color_filo: int | None = None) -> None:
@@ -313,7 +380,35 @@ class ServicioMuebles:
                 raise ErrorMuebles(f"{p.tipo}: está laqueada y las piezas laqueadas no llevan filo.")
             if p.medida_2 is None and filo.nombre != SIN_FILO:
                 raise ErrorMuebles(f"{p.tipo}: es un listón, no lleva filo.")
+            if p.tipo in TIPOS_SIN_FILO and filo.nombre != SIN_FILO:
+                raise ErrorMuebles("Los fondos y los pisos de cajón no llevan filo.")
+            if p.sin_filo_fijo and filo.nombre != SIN_FILO:
+                raise ErrorMuebles("Con guía de lateral oculto, el piso del cajón no lleva filo (como los fondos).")
         for p in piezas:
+            self._repo.guardar_pieza(replace(p, id_tipo_filo=id_tipo_filo, cantos=cantos,
+                                             id_color_filo=None if filo.nombre == SIN_FILO else id_color_filo))
+
+    def definir_filo_por_patron(self, ids: list[int], id_tipo_filo: int, patron: str | None,
+                                id_color_filo: int | None = None) -> None:
+        """Mismo filo y mismo patrón de cantos («2 largos», «1 corto»…) para varias
+        piezas: los cantos se calculan en cada una según cuál es su lado largo (RF-15.5)."""
+        filo = next((f for f in self._catalogo.filos() if f.id == id_tipo_filo), None)
+        if filo is None:
+            raise ErrorMuebles("Elegí el tipo de filo.")
+        if filo.nombre != SIN_FILO and not patron:
+            raise ErrorMuebles("Elegí qué cantos llevan filo (1 largo, 2 cortos…).")
+        piezas = [self._pieza_editable(i) for i in ids]
+        for p in piezas:   # todo o nada: primero se controla, después se guarda
+            if p.id_color_laca is not None and filo.nombre != SIN_FILO:
+                raise ErrorMuebles(f"{p.descripcion or p.tipo}: está laqueada y las piezas laqueadas no llevan filo.")
+            if p.medida_2 is None and filo.nombre != SIN_FILO:
+                raise ErrorMuebles(f"{p.descripcion or p.tipo}: es un listón, no lleva filo.")
+            if p.tipo in TIPOS_SIN_FILO and filo.nombre != SIN_FILO:
+                raise ErrorMuebles("Los fondos y los pisos de cajón no llevan filo.")
+            if p.sin_filo_fijo and filo.nombre != SIN_FILO:
+                raise ErrorMuebles("Con guía de lateral oculto, el piso del cajón no lleva filo (como los fondos).")
+        for p in piezas:
+            cantos = Cantos() if filo.nombre == SIN_FILO else cantos_de_patron(patron, p.medida_1, p.medida_2)
             self._repo.guardar_pieza(replace(p, id_tipo_filo=id_tipo_filo, cantos=cantos,
                                              id_color_filo=None if filo.nombre == SIN_FILO else id_color_filo))
 
@@ -346,13 +441,16 @@ class ServicioMuebles:
                                          medida_2=motor.redondear(medida_2) if medida_2 is not None else None,
                                          id_material=id_material or p.id_material, editada=True))
 
-    def dividir_fila(self, id_pieza: int, cantidad: int) -> int:
-        """Separa piezas de una fila para darles otro filo (RF-15.3). Las dos quedan editadas."""
+    def dividir_fila(self, id_pieza: int, cantidad: int, descripcion: str | None = None) -> int:
+        """Separa piezas de una fila para darles otro filo o laca (RF-15.3). La fila nueva
+        puede llevar un nombre (ej.: «Lateral visto») para reconocerla. Las dos quedan editadas."""
         p = self._pieza_editable(id_pieza)
         if not 0 < cantidad < p.cantidad:
             raise ErrorMuebles(f"Podés separar entre 1 y {p.cantidad - 1} piezas.")
+        nombre = _texto(descripcion, "el nombre de la fila nueva", 100, obligatorio=False)
         self._repo.guardar_pieza(replace(p, cantidad=p.cantidad - cantidad, editada=True))
-        return self._repo.guardar_pieza(replace(p, id=None, cantidad=cantidad, editada=True))
+        return self._repo.guardar_pieza(replace(p, id=None, cantidad=cantidad, editada=True,
+                                                descripcion=nombre or p.descripcion))
 
     def agregar_pieza_suelta(self, id_mueble: int, tipo: str, descripcion: str | None, id_material: int,
                              cantidad: int, medida_1: Decimal, medida_2: Decimal | None) -> int:

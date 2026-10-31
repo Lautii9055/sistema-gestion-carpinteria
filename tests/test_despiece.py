@@ -17,7 +17,7 @@ TELESCOPICA = TipoGuia(1, "Telescópica cierre suave", None, D("0.2"), largos=LA
     PiezaGuia(10, "Lateral de cajón", 2, None, D("0"), D("0")),
     PiezaGuia(11, "Contrafrente de cajón", 1, D("6.3"), None, D("0")),
     PiezaGuia(12, "Frente interno de cajón", 1, D("6.3"), None, D("3")),
-    PiezaGuia(13, "Piso de cajón", 1, D("2.7"), D("0"), None),
+    PiezaGuia(13, "Piso de cajón", 1, D("3.0"), D("0.3"), None),
 ))
 OCULTA_SIN_ALTO = TipoGuia(2, "Lateral oculto Eurohard", "Eurohard", D("0.8"), largos=LARGOS, piezas=(
     PiezaGuia(13, "Piso de cajón", 1, D("7.5"), D("0.9"), None),
@@ -83,7 +83,8 @@ def test_cajonera_60x34x51_8_fajas_de_luz_2_cajones_telescopicos():
         assert medidas(d, "Lateral de cajón", numero) == [(2, D(50), D(12))]
         assert medidas(d, "Contrafrente de cajón", numero) == [(1, D("50.1"), D(12))]
         assert medidas(d, "Frente interno de cajón", numero) == [(1, D("50.1"), D(9))]
-        assert medidas(d, "Piso de cajón", numero) == [(1, D("53.7"), D(50))]
+        # Piso de 5,5 mm: 0,3 menos que la caja (56,4 − 2,7 = 53,7 de ancho; 50 de largo) → 53,4 × 49,7
+        assert medidas(d, "Piso de cajón", numero) == [(1, D("53.4"), D("49.7"))]
     assert medida_de_corte(D("59.4"), D("16.2"), D("0.2"), True, True, True, True) == (D("59.0"), D("15.8"))
     piso = next(p for p in d.piezas if p.tipo == "Piso de cajón")
     lateral = next(p for p in d.piezas if p.tipo == "Lateral de cajón")
@@ -315,3 +316,23 @@ def test_la_guia_se_elige_por_la_profundidad_de_la_caja():
     with pytest.raises(ErrorDespiece, match="no entra en una caja de 48.2"):
         calcular_modulo(Modulo(Armado.CAJONERA_FAJAS_DE_LUZ, D(60), D(34), D(50), ancho_faja=D(10),
                                cajones=(Cajon(TELESCOPICA, D(50), D(12)),)))
+
+
+# ---------- cajoneras con piso y 2 fajas arriba ----------
+# Ejemplo de Lautaro: 50 × 40 × 30 (con frentes de 18 mm la caja va de 28,2).
+def test_cajonera_con_piso_y_fajas_de_luz():
+    d = calcular_modulo(Modulo(Armado.CAJONERA_PISO_FAJAS_DE_LUZ, D(50), D(40), D(30), ancho_faja=D(10),
+                               cajones=(Cajon(TELESCOPICA, D(25), D(12)),), **CAJONERA_CON_TIRADOR))
+    assert medidas(d, "Piso") == [(1, D(50), D("28.2"))]               # siempre entero
+    assert medidas(d, "Lateral") == [(2, D("38.2"), D("28.2"))]        # apoyan en el piso
+    assert medidas(d, "Faja") == [(2, D("46.4"), D(10))]               # entre los laterales, solo arriba
+
+
+def test_cajonera_con_piso_y_laterales_de_luz():
+    d = calcular_modulo(Modulo(Armado.CAJONERA_PISO_LATERALES_DE_LUZ, D(50), D(40), D(30), ancho_faja=D(8),
+                               cajones=(Cajon(TELESCOPICA, D(25), D(12)),), **CAJONERA_CON_TIRADOR))
+    assert medidas(d, "Piso") == [(1, D(50), D("28.2"))]
+    assert medidas(d, "Lateral") == [(2, D("36.4"), D("28.2"))]        # entre el piso y las fajas
+    assert medidas(d, "Faja") == [(2, D(50), D(8))]
+    # El cajón se calcula igual que en las demás cajoneras: ancho interior 50 − 3,6 = 46,4
+    assert medidas(d, "Contrafrente de cajón", 1) == [(1, D("40.1"), D(12))]

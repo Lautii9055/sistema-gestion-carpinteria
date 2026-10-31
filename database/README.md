@@ -44,6 +44,10 @@ Si la base ya estaba creada, ejecutar además, en orden, las migraciones que fal
 | `10_migracion_veta_rotada.sql` | Tabla `Modulo_Veta_Rotada`: tipos de pieza con la veta rotada en cada módulo (se respeta al recalcular) |
 | `11_migracion_luces_laterales.sql` | Columnas `luz_izquierda_mod` y `luz_derecha_mod` en `Modulo` (0,3 por defecto; 0,15 junto a otro módulo) |
 | `12_migracion_cantidad_modulos.sql` | Columna `cantidad_mod` en `Modulo`: módulos iguales cargados una sola vez (1 a 50) |
+| `13_migracion_fondos_sin_filo.sql` | Deja todos los fondos con «Sin filo»: los fondos nunca llevan filo |
+| `14_migracion_piso_oculto_sin_filo.sql` | Con guía de lateral oculto, deja los pisos de cajón con «Sin filo» (igual que los fondos) |
+| `15_migracion_piso_telescopica.sql` | Piso del cajón con telescópica: 5,5 mm y 0,3 menos que la caja (ancho interior − 3,0 × largo guía − 0,3); ningún piso de cajón con filo |
+| `16_migracion_cajoneras_con_piso.sql` | Tipos de armado nuevos: cajonera con piso y 2 fajas arriba (fajas de luz y laterales de luz) |
 
 `01_tablas.sql` es re-ejecutable: borra las tablas y las vuelve a crear (se pierden los datos). Después hay que volver a correr 02, 03, 04 y 05.
 

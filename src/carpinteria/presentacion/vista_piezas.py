@@ -1,10 +1,11 @@
 """Piezas y filos (diseño 4b, RF-15 a RF-19).
 
 A la izquierda, las piezas agrupadas (estructura, frentes, cada cajón, zócalos,
-piezas sueltas) con su estado de filo. A la derecha, el editor: la pieza dibujada
-con la medida 1 (sentido de la veta) en horizontal; se toca cada canto para
-marcarlo, se elige el tipo de filo y se ve la medida de corte al instante.
-Se pueden marcar varias piezas y darles el mismo filo de una vez.
+piezas sueltas) con su estado de filo. A la derecha, el editor: primero el tipo
+de filo y después los cantos, con opciones fijas («1 largo», «2 cortos», «1 largo
+y 1 corto»…, RF-15.5). La pieza se dibuja con la medida 1 (veta) en horizontal y
+se ve la medida de corte al instante. Se pueden marcar varias piezas y darles el
+mismo filo de una vez: los cantos se calculan en cada una según su lado largo.
 """
 from __future__ import annotations
 
@@ -15,7 +16,10 @@ import flet as ft
 
 from carpinteria.negocio.despiece import medida_de_corte
 from carpinteria.negocio.entidades import Cantos, PiezaGuardada
+from carpinteria.negocio.filos import PATRONES, cantos_de_patron, nombre_de_cantos, patron_de_cantos
 from carpinteria.negocio.materiales import formato_numero, leer_numero, texto_placa
+from carpinteria.negocio.filos import TIPOS_SIN_FILO
+from carpinteria.negocio.muebles import nunca_lleva_filo
 from carpinteria.presentacion import componentes, tema
 from carpinteria.presentacion.tema import SANS_MEDIA, SANS_SEMI
 from carpinteria.presentacion.vista_muebles import FILTRO_NUMERO, resumen_modulo
@@ -71,13 +75,16 @@ class _Datos:
         if x.id_color_laca is not None:
             laca = self.lacas.get(x.id_color_laca)
             return f"Laqueada{' · ' + laca.descripcion if laca else ''}", False
+        if x.tipo in TIPOS_SIN_FILO or x.sin_filo_fijo:
+            return "No lleva filo", False
+        if x.medida_2 is None:
+            return "Listón · sin filo", False
         if x.id_tipo_filo is None:
             return "Falta filo", True
         filo = self.filos.get(x.id_tipo_filo)
         if filo is None or filo.nombre == SIN_FILO:
             return "Sin filo", False
-        n = x.cantos.cantidad
-        return f"✓ {filo.nombre} · {n} canto{'s' if n != 1 else ''}", False
+        return f"✓ {filo.nombre} · {nombre_de_cantos(x.cantos, x.medida_1, x.medida_2)}", False
 
 
 def _grupos(app: Aplicacion, id_trabajo: int, id_modulo: int | None, id_zocalo: int | None
@@ -140,9 +147,8 @@ def _dibujo_pieza(app: Aplicacion, x: PiezaGuardada, cantos: Cantos, con_veta: b
     def barra(lado: str, left: float, top: float, ancho: float, alto: float) -> ft.Container:
         activo = getattr(cantos, lado)
         return ft.Container(left=left, top=top, width=ancho, height=alto, border_radius=4,
-                            bgcolor=p.acento if activo else p.borde_fuerte, ink=True,
-                            tooltip=f"Canto {lado}: {'con filo' if activo else 'sin filo'}",
-                            on_click=lambda _: al_tocar(lado))
+                            bgcolor=p.acento if activo else p.borde_fuerte,
+                            tooltip=f"Canto {lado}: {'con filo' if activo else 'sin filo'}")
 
     vetas = []
     if con_veta:   # rayas en el sentido de la veta (la medida 1)
@@ -174,7 +180,7 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
     clave = f"piezas:{id_trabajo}:{id_modulo}:{id_zocalo}"
     estado = app.recuerdos.get("piezas")
     if not estado or estado.get("_clave") != clave:
-        estado = {"_clave": clave, "sel": [], "cantos": Cantos(), "id_filo": None, "id_color": ""}
+        estado = {"_clave": clave, "sel": [], "patron": None, "id_filo": None, "id_color": ""}
         app.recuerdos["piezas"] = estado
 
     lista_cont = ft.Container()
@@ -194,16 +200,15 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
     def cargar_desde(x: PiezaGuardada) -> None:
         """Al elegir una pieza, el editor arranca con su filo (o el último usado)."""
         if x.id_tipo_filo is not None and x.id_color_laca is None:
-            estado["id_filo"], estado["cantos"] = x.id_tipo_filo, x.cantos
+            estado["id_filo"] = x.id_tipo_filo
+            estado["patron"] = patron_de_cantos(x.cantos, x.medida_1, x.medida_2) if x.cantos.cantidad else None
             estado["id_color"] = str(x.id_color_filo or "")
-        elif estado["id_filo"] is None:
-            otro = next((f for f in datos.filos.values() if f.nombre != SIN_FILO), None)
-            estado["id_filo"] = otro.id if otro else datos.sin_filo
-            estado["cantos"] = Cantos(True, True, True, True) if otro else Cantos()
 
     def elegir(x: PiezaGuardada, sumar: bool) -> None:
         sel = estado["sel"]
-        if sumar:
+        if sumar:   # al marcar varias, un fondo o listón elegido antes se suelta
+            piezas = por_id()
+            sel[:] = [i for i in sel if i in piezas and not nunca_lleva_filo(piezas[i])]
             if x.id in sel:
                 sel.remove(x.id)
             else:
@@ -217,7 +222,7 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
 
     def elegir_faltantes(_=None) -> None:
         faltan = [x for _, lista in piezas_actuales()[1] for x in lista
-                  if x.id_tipo_filo is None and x.id_color_laca is None and x.medida_2 is not None]
+                  if x.id_tipo_filo is None and x.id_color_laca is None and not nunca_lleva_filo(x)]
         estado["sel"] = [x.id for x in faltan]
         if faltan:
             cargar_desde(faltan[0])
@@ -232,13 +237,16 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
                                                p.error_fondo if falta else p.superficie_alta)
         return ft.Container(
             content=ft.Row([
+                # Fondos y listones no se marcan para dar filo (nunca llevan); se tocan para rotar o editar.
                 ft.Checkbox(value=elegida, active_color=p.acento, check_color=p.sobre_acento,
-                            on_change=lambda _, x=x: elegir(x, True), visible=editable),
+                            on_change=lambda _, x=x: elegir(x, True), visible=editable and not nunca_lleva_filo(x))
+                if not nunca_lleva_filo(x) or not editable else ft.Container(width=40),
                 ft.Column([ft.Text(f"{x.descripcion or x.tipo} × {x.cantidad}"
                                    + (f"  (×{x.veces} módulos = {x.total})" if x.veces > 1 else ""),
                                    size=15, font_family=SANS_MEDIA,
                                    color=p.texto),
-                           ft.Text(f"{_medidas(x)} · {datos.material(x)}", size=12, color=p.texto_tenue)],
+                           ft.Text(f"{_medidas(x)} · {datos.material(x)}"
+                                   + (" · editada a mano" if x.editada else ""), size=12, color=p.texto_tenue)],
                           spacing=0, expand=True),
                 etiqueta,
             ], spacing=8),
@@ -267,34 +275,19 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
         return ft.Column(controles, spacing=8)
 
     # ----- editor -----
-    def tocar_canto(lado: str) -> None:
-        c = estado["cantos"]
-        estado["cantos"] = Cantos(**{**{k: getattr(c, k) for k in LADOS}, lado: not getattr(c, lado)})
-        filo = datos.filos.get(estado["id_filo"])
-        if filo and filo.nombre == SIN_FILO and estado["cantos"].cantidad:
-            # Marcó un canto con «Sin filo» elegido: pasa al primer filo real.
-            otro = next((f for f in datos.filos.values() if f.nombre != SIN_FILO), None)
-            estado["id_filo"] = otro.id if otro else estado["id_filo"]
-        actualizar()
-
     def elegir_filo(id_filo: int) -> None:
         estado["id_filo"] = id_filo
         if id_filo == datos.sin_filo:
-            estado["cantos"] = Cantos()
-        elif not estado["cantos"].cantidad:
-            estado["cantos"] = Cantos(True, True, True, True)
+            estado["patron"] = None
         actualizar()
 
-    def todos_los_cantos(valor: bool) -> None:
-        estado["cantos"] = Cantos(valor, valor, valor, valor)
-        if valor and estado["id_filo"] == datos.sin_filo:
-            otro = next((f for f in datos.filos.values() if f.nombre != SIN_FILO), None)
-            estado["id_filo"] = otro.id if otro else estado["id_filo"]
+    def elegir_patron(patron: str) -> None:
+        estado["patron"] = patron
         actualizar()
 
     def aplicar(_=None) -> None:
         ids = list(estado["sel"])
-        _, error = app.ejecutar(app.muebles.definir_filo, ids, estado["id_filo"], estado["cantos"],
+        _, error = app.ejecutar(app.muebles.definir_filo_por_patron, ids, estado["id_filo"], estado["patron"],
                                 int(estado["id_color"]) if estado["id_color"] else None)
         if error:
             mostrar_error(error)
@@ -326,6 +319,24 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
             border=ft.Border.all(2 if activo else 1, p.acento if activo else p.borde_fuerte),
             bgcolor=p.superficie_alta if activo else None, on_click=lambda _: elegir_filo(f.id))
 
+    def boton_patron(clave: str, nombre: str) -> ft.Container:
+        """Opción de cantos con un dibujito (pieza apaisada: los largos son arriba y abajo)."""
+        activo = estado["patron"] == clave
+        c = cantos_de_patron(clave, Decimal(2), Decimal(1))
+        grueso, fino = 4, 1
+        icono = ft.Container(width=46, height=26, border=ft.Border(
+            top=ft.BorderSide(grueso if c.superior else fino, p.acento if c.superior else p.borde_fuerte),
+            bottom=ft.BorderSide(grueso if c.inferior else fino, p.acento if c.inferior else p.borde_fuerte),
+            left=ft.BorderSide(grueso if c.izquierdo else fino, p.acento if c.izquierdo else p.borde_fuerte),
+            right=ft.BorderSide(grueso if c.derecho else fino, p.acento if c.derecho else p.borde_fuerte)))
+        return ft.Container(
+            content=ft.Column([icono, ft.Text(nombre, size=13, font_family=SANS_MEDIA, color=p.texto,
+                                              text_align=ft.TextAlign.CENTER)],
+                              spacing=6, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.Padding.symmetric(horizontal=6, vertical=10), border_radius=10, ink=True,
+            border=ft.Border.all(2 if activo else 1, p.acento if activo else p.borde_fuerte),
+            bgcolor=p.superficie_alta if activo else None, on_click=lambda _: elegir_patron(clave))
+
     def armar_editor() -> ft.Control:
         caja_error.visible = False
         piezas = por_id()
@@ -345,33 +356,62 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
             f"{len(elegidas)} filas elegidas · mismo filo para todas" if varias
             else f"{primera.descripcion or primera.tipo} × {primera.cantidad}", size=20, font_family=SANS_SEMI,
             color=p.texto))
-        if any(x.medida_2 is None for x in elegidas):
-            controles.append(tema.aviso("Los listones no llevan filo.", p, "info"))
+        if any(nunca_lleva_filo(x) for x in elegidas):
+            que = ("Los fondos no llevan" if primera.tipo == "Fondo"
+                   else "El piso del cajón es un fondo: no lleva" if primera.tipo in TIPOS_SIN_FILO
+                   else "Los listones no llevan")
+            controles += [tema.aviso(f"{que} filo nunca.", p, "info"),
+                          *([_acciones(app, elegidas, datos, id_trabajo, actualizar, seleccionar)]
+                            if primera.medida_2 is not None else [])]
             return ft.Column(controles, spacing=12)
         if any(x.id_color_laca is not None for x in elegidas):
-            controles += [tema.aviso("Laqueada: no lleva filo. Para ponerle filo, quitale la laca.", p, "info"),
-                          _acciones(app, elegidas, datos, id_trabajo, actualizar)]
+            laqueadas = [x for x in elegidas if x.id_color_laca is not None]
+            lacas = sorted({datos.estado(x)[0] for x in laqueadas})
+
+            def quitar_laca(_=None) -> None:
+                """Deshacer: vuelve a ir con filo (queda por definir y se elige acá mismo)."""
+                _, error = app.ejecutar(app.muebles.laquear, [x.id for x in laqueadas], None, None)
+                if error:
+                    mostrar_error(error)
+                    return
+                estado["patron"] = None
+                actualizar()
+                componentes.aviso_flotante(
+                    app.page, f"Se quitó la laca de {len(laqueadas)} fila{'s' if len(laqueadas) != 1 else ''}: "
+                              "ahora elegí su filo.", p)
+
+            controles += [
+                tema.aviso(f"{', '.join(lacas)}. Las piezas laqueadas no llevan filo.", p, "info"),
+                ft.Row([
+                    componentes.boton_con_icono(
+                        "Quitar la laca (va con filo)", ft.Icons.UNDO, p, quitar_laca, principal=False),
+                    componentes.boton_con_icono(
+                        "Cambiar el color", ft.Icons.FORMAT_PAINT_OUTLINED, p,
+                        lambda _: _dialogo_laquear(app, laqueadas, datos, actualizar), principal=False),
+                ], spacing=10, wrap=True, run_spacing=10),
+                _acciones(app, elegidas, datos, id_trabajo, actualizar, seleccionar),
+            ]
             return ft.Column(controles, spacing=12)
 
-        cantos = estado["cantos"]
         filo = datos.filos.get(estado["id_filo"])
-        descuento = filo.descuento_cm if filo and filo.nombre != SIN_FILO else Decimal(0)
+        sin_filo = filo is not None and filo.nombre == SIN_FILO
+        patron = estado["patron"]
+        cantos = cantos_de_patron(patron, primera.medida_1, primera.medida_2) if patron and not sin_filo else Cantos()
+        descuento = filo.descuento_cm if filo and not sin_filo else Decimal(0)
         corte_1, corte_2 = medida_de_corte(primera.medida_1, primera.medida_2, descuento,
                                            **{k: getattr(cantos, k) for k in LADOS})
         controles += [
-            ft.Container(_dibujo_pieza(app, primera, cantos, datos.con_veta(primera), tocar_canto),
-                         alignment=ft.Alignment.CENTER),
-            _ayuda(p, "Tocá cada canto para ponerle o sacarle filo." + (
-                f" El dibujo es de {primera.tipo.lower()}; el filo se aplica igual a las {len(elegidas)} filas."
-                if varias else "")),
-            ft.Row([ft.TextButton(content=ft.Text("Los 4 cantos", color=p.acento_texto),
-                                  on_click=lambda _: todos_los_cantos(True)),
-                    ft.TextButton(content=ft.Text("Ninguno", color=p.acento_texto),
-                                  on_click=lambda _: todos_los_cantos(False))], spacing=4),
-            tema.etiqueta_superior("Tipo de filo", p),
+            tema.etiqueta_superior("1 · Tipo de filo", p),
             ft.Row([boton_filo(f) for f in datos.filos.values()], spacing=8, wrap=True, run_spacing=8),
         ]
-        if filo and filo.nombre != SIN_FILO:
+        if filo is not None and not sin_filo:
+            controles += [
+                tema.etiqueta_superior("2 · Qué cantos llevan filo", p),
+                ft.ResponsiveRow([ft.Container(boton_patron(clave, nombre), col={"xs": 6, "md": 4})
+                                  for clave, nombre, _, _ in PATRONES], spacing=8, run_spacing=8),
+                _ayuda(p, "Largo = canto del lado más largo de la pieza; corto = el del lado más corto."
+                       + (f" Con {len(elegidas)} filas, se calcula en cada una según sus medidas." if varias else "")),
+            ]
             colores = [("", "Del mismo color que la pieza")] + [
                 (str(c.id), f"{c.marca} {c.descripcion}") for c in datos.colores.values()
                 if c.es_activo or str(c.id) == estado["id_color"]]
@@ -381,6 +421,9 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
                 estado["id_color"] = color.value or ""
             color.on_select = al_elegir_color
             controles.append(color)
+        if filo is not None:
+            controles.append(ft.Container(_dibujo_pieza(app, primera, cantos, datos.con_veta(primera), None),
+                                          alignment=ft.Alignment.CENTER))
         controles.append(componentes.tarjeta(ft.Row([
             ft.Column([ft.Text("Medida final", size=12, color=p.texto_tenue),
                        ft.Text(f"{_f(primera.medida_1)} × {_f(primera.medida_2)}", size=18, color=p.texto,
@@ -391,13 +434,24 @@ def construir(app: Aplicacion, id_trabajo: int, id_modulo: int | None = None,
                                font_family=SANS_SEMI)], spacing=0, expand=True,
                       horizontal_alignment=ft.CrossAxisAlignment.END),
         ]), p, padding=14))
+        listo = filo is not None and (sin_filo or patron is not None)
+        aplicar_boton = tema.boton_principal(f"Aplicar a {len(elegidas)} fila{'s' if varias else ''}", p, aplicar,
+                                             disabled=not listo)
+        aplicar_boton.opacity = 1 if listo else 0.4
         controles += [
-            tema.boton_principal(f"Aplicar a {len(elegidas)} fila{'s' if varias else ''}", p, aplicar,
-                                 disabled=filo is None),
+            aplicar_boton,
             ft.Divider(color=p.borde, height=1),
-            _acciones(app, elegidas, datos, id_trabajo, actualizar),
+            _acciones(app, elegidas, datos, id_trabajo, actualizar, seleccionar),
         ]
         return ft.Column(controles, spacing=12)
+
+    def seleccionar(ids: list[int]) -> None:
+        """Deja marcadas estas filas (ej.: la fila nueva después de separar)."""
+        estado["sel"] = list(ids)
+        piezas = por_id()
+        if ids and ids[0] in piezas:
+            cargar_desde(piezas[ids[0]])
+        actualizar()
 
     def actualizar() -> None:
         lista_cont.content = armar_lista()
@@ -431,8 +485,8 @@ def _ayuda(p, texto: str) -> ft.Text:
 
 
 # ---------- acciones sobre las piezas elegidas ----------
-def _acciones(app: Aplicacion, elegidas: list[PiezaGuardada], datos: _Datos, id_trabajo: int, actualizar
-              ) -> ft.Control:
+def _acciones(app: Aplicacion, elegidas: list[PiezaGuardada], datos: _Datos, id_trabajo: int, actualizar,
+              seleccionar) -> ft.Control:
     p = app.paleta
     una = elegidas[0] if len(elegidas) == 1 else None
 
@@ -453,11 +507,12 @@ def _acciones(app: Aplicacion, elegidas: list[PiezaGuardada], datos: _Datos, id_
         boton("Rotar veta", ft.Icons.SCREEN_ROTATION_OUTLINED,
               lambda: hacer(app.muebles.rotar_pieza, una.id, mensaje="Veta rotada: se intercambiaron las medidas."),
               visible=una is not None and una.medida_2 is not None),
-        boton("Separar piezas", ft.Icons.CALL_SPLIT, lambda: _dialogo_dividir(app, una, actualizar),
+        boton("Separar piezas", ft.Icons.CALL_SPLIT, lambda: _dialogo_dividir(app, una, seleccionar),
               visible=una is not None and una.cantidad > 1),
         boton("Editar medidas", ft.Icons.EDIT_OUTLINED, lambda: _dialogo_editar(app, una, actualizar),
               visible=una is not None),
-        boton("Laquear", ft.Icons.FORMAT_PAINT_OUTLINED, lambda: _dialogo_laquear(app, elegidas, datos, actualizar),
+        boton(f"Laquear {len(elegidas)} filas" if len(elegidas) > 1 else "Laquear", ft.Icons.FORMAT_PAINT_OUTLINED,
+              lambda: _dialogo_laquear(app, elegidas, datos, actualizar),
               visible=all(x.medida_2 is not None for x in elegidas)),
         boton("Eliminar", ft.Icons.DELETE_OUTLINE,
               lambda: hacer(app.muebles.eliminar_pieza, una.id, mensaje="Pieza eliminada."),
@@ -465,6 +520,8 @@ def _acciones(app: Aplicacion, elegidas: list[PiezaGuardada], datos: _Datos, id_
     ]
     return ft.Column([tema.etiqueta_superior("Más acciones", p),
                       ft.Row(botones, spacing=0, wrap=True, run_spacing=0),
+                      *([_ayuda(p, "Separar, rotar, editar y eliminar se hacen de a una fila: dejá marcada una sola.")]
+                        if una is None else []),
                       _ayuda(p, "Al rotar, separar o editar, la pieza queda «editada a mano»: si después cambiás el "
                                 "módulo, no se recalcula y el sistema te avisa.")], spacing=6)
 
@@ -485,20 +542,33 @@ def _dialogo(app: Aplicacion, titulo: str, controles: list[ft.Control], accion) 
         ancho=480))
 
 
-def _dialogo_dividir(app: Aplicacion, x: PiezaGuardada, actualizar) -> None:
+def _dialogo_dividir(app: Aplicacion, x: PiezaGuardada, seleccionar) -> None:
+    """Separa piezas de una fila en una fila nueva (para darles otro filo o laca) y
+    deja esa fila nueva marcada, con su nombre, para que se vea qué se separó."""
     p = app.paleta
-    cantidad = tema.campo("Cuántas separar", p, value="1", autofocus=True, input_filter=ft.NumbersOnlyInputFilter(),
-                          helper=f"Entre 1 y {x.cantidad - 1}: quedan en otra fila para darles otro filo"
+    nombre_actual = x.descripcion or x.tipo
+    cantidad = tema.campo("Cuántas piezas pasan a la fila nueva", p, value="1", autofocus=True,
+                          input_filter=ft.NumbersOnlyInputFilter(),
+                          helper=f"Entre 1 y {x.cantidad - 1}"
                           + (f" (por módulo: vale para los {x.veces} módulos iguales)" if x.veces > 1 else ""))
+    nombre = tema.campo("Nombre de la fila nueva", p, value=f"{nombre_actual} visto" if x.tipo == "Lateral" else "",
+                        max_length=100, hint_text=f"por ejemplo: {nombre_actual} visto")
 
     def guardar() -> str | None:
-        _, error = app.ejecutar(app.muebles.dividir_fila, x.id, int(cantidad.value or 0))
+        n = int(cantidad.value or 0)
+        nueva, error = app.ejecutar(app.muebles.dividir_fila, x.id, n, nombre.value)
         if error:
             return error
         app.cerrar_dialogo()
-        actualizar()
+        seleccionar([nueva])
+        componentes.aviso_flotante(
+            app.page, f"Listo: «{nombre.value or nombre_actual}» × {n} quedó en una fila aparte (marcada) y "
+                      f"«{nombre_actual}» × {x.cantidad - n} sigue en la suya.", p)
         return None
-    _dialogo(app, f"Separar · {x.tipo} × {x.cantidad}", [cantidad], guardar)
+    _dialogo(app, f"Separar «{nombre_actual}» × {x.cantidad}", [
+        ft.Text("Las piezas que separes pasan a una fila nueva, para darles otro filo o laquearlas. "
+                "Por ejemplo, de 2 laterales, el que queda a la vista.", size=14, color=p.texto_secundario),
+        cantidad, nombre], guardar)
 
 
 def _dialogo_editar(app: Aplicacion, x: PiezaGuardada, actualizar) -> None:
@@ -534,6 +604,8 @@ def _dialogo_laquear(app: Aplicacion, elegidas: list[PiezaGuardada], datos: _Dat
                                           str(actual.id_terminacion or (terminaciones[0][0] if terminaciones else "")),
                                           p)
 
+    nombres = [f"{x.descripcion or x.tipo} × {x.cantidad}" for x in elegidas]
+
     def guardar() -> str | None:
         id_color = int(color.value) if color.value else None
         id_term = int(terminacion.value) if id_color and terminacion.value else None
@@ -542,7 +614,14 @@ def _dialogo_laquear(app: Aplicacion, elegidas: list[PiezaGuardada], datos: _Dat
             return error
         app.cerrar_dialogo()
         actualizar()
+        que = f"{len(elegidas)} filas" if len(elegidas) > 1 else nombres[0]
+        componentes.aviso_flotante(app.page, f"{que}: laqueada{'s' if len(elegidas) > 1 else ''} "
+                                             f"({dict(colores).get(color.value, '')})." if id_color
+                                   else f"{que}: sin laca; falta definirle el filo.", p)
         return None
-    _dialogo(app, "Laquear", [color, terminacion,
-                              _ayuda(p, "Laqueada no lleva filo. «Sin laquear» la deja con el filo por definir.")],
+    _dialogo(app, f"Laquear {len(elegidas)} filas" if len(elegidas) > 1 else f"Laquear «{nombres[0]}»", [
+        *([ft.Text("Se laquean: " + ", ".join(nombres), size=14, color=p.texto_secundario)]
+          if len(elegidas) > 1 else []),
+        color, terminacion,
+        _ayuda(p, "Laqueada no lleva filo. «Sin laquear» le saca la laca y el filo queda por definir.")],
              guardar)

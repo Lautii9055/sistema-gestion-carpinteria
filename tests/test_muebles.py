@@ -71,8 +71,9 @@ def test_guardar_modulo_genera_piezas_con_su_material(taller):
     assert piezas[("Lateral", None)].id_material == t["placas"]["blanco18"]
     assert piezas[("Fondo", None)].id_material == t["placas"]["blanco55"]
     assert (piezas[("Fondo", None)].medida_1, piezas[("Fondo", None)].medida_2) == (D("59.7"), D("89.7"))
-    assert all(p.id_tipo_filo is None for p in piezas.values())        # filos sin definir (RN-08)
-    assert len(t["servicio"].piezas_sin_filo(t["id_trabajo"])) == len(piezas)
+    # filos sin definir (RN-08), salvo el fondo, que nunca lleva (RN-08.3)
+    assert all(p.id_tipo_filo is None for k, p in piezas.items() if k[0] != "Fondo")
+    assert len(t["servicio"].piezas_sin_filo(t["id_trabajo"])) == len(piezas) - 1
 
 
 def test_veta_rotada_al_cargar_se_respeta_al_recalcular(taller):
@@ -279,3 +280,102 @@ def test_modulos_iguales_multiplican_las_piezas(taller):
 def test_cantidad_de_modulos_fuera_de_rango(taller):
     with pytest.raises(ErrorMuebles, match="de 1 a 50"):
         taller["servicio"].guardar_modulo(_modulo(taller, cantidad=0))
+
+
+def test_listado_bloqueado_mientras_falten_filos(taller):
+    t = taller
+    t["servicio"].guardar_modulo(_modulo(t))
+    with pytest.raises(ErrorMuebles, match="Faltan definir los filos"):
+        t["servicio"].listado_de_corte(t["id_trabajo"])
+
+
+def test_listado_de_corte_con_filos_definidos(taller):
+    t = taller
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t, cantidad=2))
+    ids = [p.id for p in t["repo"].piezas_de_modulo(id_modulo) if p.id_tipo_filo is None]
+    t["servicio"].definir_filo(ids, FILO_045, Cantos(superior=True))
+    secciones = t["servicio"].listado_de_corte(t["id_trabajo"])
+    assert sum(s.total for s in secciones) == 2 * sum(p.cantidad for p in t["repo"].piezas_de_modulo(id_modulo))
+    assert {s.titulo for s in secciones} >= {"Faplac Blanco · 18 mm", "Faplac Roble · 18 mm"}
+
+
+def test_listado_de_trabajo_sin_piezas(taller):
+    with pytest.raises(ErrorMuebles, match="no tiene piezas"):
+        taller["servicio"].listado_de_corte(taller["id_trabajo"])
+    with pytest.raises(ErrorMuebles, match="laqueadas"):
+        taller["servicio"].listado_laqueador(taller["id_trabajo"])
+
+
+def test_largos_de_guia_que_entran_en_la_caja(taller):
+    guia = taller["catalogo"].guias_[1]
+    taller["catalogo"].guias_[1] = replace(guia, largos=(D(35), D(40), D(45), D(50)))
+    assert taller["servicio"].largos_que_entran(1, D(50)) == [D(45), D(40), D(35)]   # caja de 48,2
+    assert taller["servicio"].largos_que_entran(1, D(30)) == []
+
+
+def test_filo_por_patron_calcula_los_cantos_en_cada_pieza(taller):
+    t = taller
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t))     # 90 × 60 × 40
+    piezas = _piezas(t, id_modulo)
+    lateral, estante = piezas[("Lateral", None)], piezas[("Estante", None)]   # 56,4 × 38,2 y 86,4 × 38,2
+    puerta = piezas[("Puerta", None)]                                         # 59,2 × 44,5
+    t["servicio"].definir_filo_por_patron([lateral.id, estante.id, puerta.id], FILO_2, "un_largo")
+    assert t["repo"].pieza(lateral.id).cantos == Cantos(superior=True)
+    assert t["repo"].pieza(puerta.id).cantos == Cantos(superior=True)
+    t["servicio"].rotar_pieza(puerta.id)                                      # 44,5 × 59,2: largo vertical
+    t["servicio"].definir_filo_por_patron([puerta.id], FILO_2, "dos_largos")
+    assert t["repo"].pieza(puerta.id).cantos == Cantos(izquierdo=True, derecho=True)
+    with pytest.raises(ErrorMuebles, match="Elegí qué cantos"):
+        t["servicio"].definir_filo_por_patron([lateral.id], FILO_2, None)
+    t["servicio"].definir_filo_por_patron([lateral.id], SIN_FILO, None)
+    assert t["repo"].pieza(lateral.id).cantos == Cantos()
+
+
+def test_separar_fila_con_nombre(taller):
+    t = taller
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t))
+    lateral = _piezas(t, id_modulo)[("Lateral", None)]
+    nueva = t["servicio"].dividir_fila(lateral.id, 1, "Lateral visto")
+    assert t["repo"].pieza(nueva).descripcion == "Lateral visto"
+    assert t["repo"].pieza(lateral.id).cantidad == 1 and t["repo"].pieza(lateral.id).descripcion is None
+
+
+def test_los_fondos_nacen_sin_filo_y_no_se_les_puede_poner(taller):
+    t = taller
+    id_modulo, _ = t["servicio"].guardar_modulo(_modulo(t))
+    fondo = _piezas(t, id_modulo)[("Fondo", None)]
+    assert fondo.id_tipo_filo == SIN_FILO
+    with pytest.raises(ErrorMuebles, match="no llevan filo"):
+        t["servicio"].definir_filo_por_patron([fondo.id], FILO_2, "un_largo")
+    with pytest.raises(ErrorMuebles, match="no llevan filo"):
+        t["servicio"].definir_filo([fondo.id], FILO_045, Cantos(superior=True))
+    assert fondo not in t["servicio"].piezas_sin_filo(t["id_trabajo"])
+
+
+def test_piso_de_cajon_nunca_lleva_filo(taller):
+    t = taller
+    oculta = next(g for g in t["catalogo"].guias_.values() if not any(x.pieza == "Lateral de cajón" for x in g.piezas))
+    from carpinteria.negocio.catalogo import ServicioCatalogo
+    ServicioCatalogo(t["catalogo"]).guardar_alto_contrafrente(oculta.id, "8,6")
+    caj_oculto = CajonGuardado(None, oculta.id, t["placas"]["blanco18"], D(12), D(45))
+    caj_tele = CajonGuardado(None, 1, t["placas"]["blanco55"], D(12), D(45))
+    base = dict(armado="Cajonera con fajas de luz", alto=D(34), profundidad=D("51.8"), puertas=0, estantes=0,
+                ancho=D(60), ancho_faja=D(10), id_placa_fondo=None, luz_superior=D("0.6"), luz_inferior=D("0.6"))
+    id_oculto, _ = t["servicio"].guardar_modulo(_modulo(t, cajones=(caj_oculto,), **base))
+    id_tele, _ = t["servicio"].guardar_modulo(_modulo(t, cajones=(caj_tele,), **base))
+    piso_oculto = next(p for p in t["servicio"].piezas_de_modulo(id_oculto) if p.tipo == "Piso de cajón")
+    piso_tele = next(p for p in t["servicio"].piezas_de_modulo(id_tele) if p.tipo == "Piso de cajón")
+    assert piso_oculto.sin_filo_fijo and piso_oculto.id_tipo_filo == SIN_FILO
+    assert piso_tele.id_tipo_filo == SIN_FILO      # con telescópica también: el piso es un fondo de 5,5
+    with pytest.raises(ErrorMuebles, match="pisos de cajón no llevan filo"):
+        t["servicio"].definir_filo_por_patron([piso_oculto.id], FILO_2, "un_largo")
+    assert piso_oculto.id not in {p.id for p in t["servicio"].piezas_sin_filo(t["id_trabajo"])}
+
+
+def test_con_telescopica_el_piso_del_cajon_va_en_5_5(taller):
+    t = taller
+    caj = CajonGuardado(None, 1, t["placas"]["blanco18"], D(12), D(50))
+    with pytest.raises(ErrorMuebles, match="5,5 mm"):
+        t["servicio"].guardar_modulo(_modulo(
+            t, armado="Cajonera con fajas de luz", alto=D(34), profundidad=D("51.8"), puertas=0, estantes=0,
+            ancho=D(60), ancho_faja=D(10), id_placa_fondo=None, cajones=(caj,)))
